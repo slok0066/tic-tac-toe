@@ -13,13 +13,14 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? false 
+      ? '*'  // Allow all origins in production to fix CORS issues
       : ["http://localhost:5173", "http://127.0.0.1:5173"],
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3001;
 
 // In production, serve the built React app
 if (process.env.NODE_ENV === 'production') {
@@ -52,7 +53,7 @@ const leaveRoom = (socket, roomCode) => {
   const room = rooms.get(roomCode);
   if (room) {
     // Notify the other player
-    socket.to(roomCode).emit('playerLeft');
+    socket.to(roomCode).emit('player_left');
     
     // Clean up the room if both players have left
     const remainingPlayers = room.players.filter(p => p.id !== socket.id);
@@ -77,8 +78,8 @@ io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
   
   // Create a new room
-  socket.on('createRoom', () => {
-    const roomCode = nanoid(6).toUpperCase();
+  socket.on('create_room', (data) => {
+    const roomCode = data.roomCode || nanoid(6).toUpperCase();
     
     rooms.set(roomCode, {
       players: [{ id: socket.id, symbol: 'X' }],
@@ -87,12 +88,19 @@ io.on('connection', (socket) => {
     });
     
     socket.join(roomCode);
-    socket.emit('roomCreated', roomCode);
+    socket.emit('room_created', { roomCode });
     console.log(`Room created: ${roomCode}`);
   });
   
   // Join an existing room
-  socket.on('joinRoom', (roomCode) => {
+  socket.on('join_room', (data) => {
+    const roomCode = data.roomCode;
+    
+    if (!roomCode) {
+      socket.emit('error', 'Room code is required');
+      return;
+    }
+    
     const room = rooms.get(roomCode);
     
     if (!room) {
@@ -110,7 +118,9 @@ io.on('connection', (socket) => {
     socket.join(roomCode);
     
     // Notify both players that the game is starting
-    io.to(roomCode).emit('gameStart', {
+    io.to(roomCode).emit('game_start', {
+      roomCode,
+      isPlayerX: false,
       players: room.players.map(p => ({ id: p.id, symbol: p.symbol })),
       currentTurn: room.currentTurn
     });
@@ -119,40 +129,52 @@ io.on('connection', (socket) => {
   });
   
   // Make a move
-  socket.on('makeMove', ({ roomCode, position }) => {
+  socket.on('make_move', (data) => {
+    const { position, symbol, board } = data;
+    const roomCode = Array.from(socket.rooms)[1]; // The second room is the game room
+    
+    if (!roomCode) {
+      socket.emit('error', 'Not in any room');
+      return;
+    }
+    
     const room = rooms.get(roomCode);
-    if (!room) return;
+    if (!room) {
+      socket.emit('error', 'Room not found');
+      return;
+    }
     
     const player = room.players.find(p => p.id === socket.id);
-    if (!player) return;
-    
-    const { symbol } = player;
+    if (!player) {
+      socket.emit('error', 'Player not found in room');
+      return;
+    }
     
     // Validate that it's the player's turn
-    if (room.currentTurn !== symbol) {
-      console.log(`Not ${socket.id}'s turn`);
+    if (room.currentTurn !== player.symbol) {
+      socket.emit('error', 'Not your turn');
       return;
     }
     
     // Update the board
     if (position >= 0 && position < 9 && room.board[position] === null) {
-      room.board[position] = symbol;
-      room.currentTurn = symbol === 'X' ? 'O' : 'X';
+      room.board[position] = player.symbol;
+      room.currentTurn = player.symbol === 'X' ? 'O' : 'X';
       
       // Broadcast the move to all clients in the room
-      io.to(roomCode).emit('moveMade', {
+      io.to(roomCode).emit('move_made', {
         position,
-        symbol,
+        symbol: player.symbol,
         board: room.board,
         currentTurn: room.currentTurn
       });
       
-      console.log(`Move made in room ${roomCode}: ${symbol} at position ${position}`);
+      console.log(`Move made in room ${roomCode}: ${player.symbol} at position ${position}`);
     }
   });
   
   // Find a random match
-  socket.on('findMatch', () => {
+  socket.on('find_random_match', () => {
     if (waitingPlayers.includes(socket.id)) return;
     
     if (waitingPlayers.length > 0) {
@@ -172,8 +194,9 @@ io.on('connection', (socket) => {
       io.sockets.sockets.get(opponentId)?.join(roomCode);
       
       // Notify both players
-      io.to(roomCode).emit('matchFound', {
+      io.to(roomCode).emit('match_found', {
         roomCode,
+        isPlayerX: false,
         players: rooms.get(roomCode).players.map(p => ({ id: p.id, symbol: p.symbol })),
         currentTurn: 'X',
       });
@@ -181,13 +204,13 @@ io.on('connection', (socket) => {
       console.log(`Random match created: ${roomCode}`);
     } else {
       waitingPlayers.push(socket.id);
-      socket.emit('waitingForMatch');
+      socket.emit('waiting_for_match');
       console.log(`Player ${socket.id} is waiting for a match`);
     }
   });
   
   // Cancel match finding
-  socket.on('cancelMatch', () => {
+  socket.on('cancel_random_match', () => {
     const index = waitingPlayers.indexOf(socket.id);
     if (index !== -1) {
       waitingPlayers.splice(index, 1);
@@ -196,8 +219,14 @@ io.on('connection', (socket) => {
   });
   
   // Leave room
-  socket.on('leaveRoom', (roomCode) => {
-    leaveRoom(socket, roomCode);
+  socket.on('leave_room', () => {
+    // Find what room this socket is in
+    const rooms = Array.from(socket.rooms);
+    // First room is always the socket ID room
+    if (rooms.length > 1) {
+      const roomCode = rooms[1];
+      leaveRoom(socket, roomCode);
+    }
   });
   
   // Handle disconnection

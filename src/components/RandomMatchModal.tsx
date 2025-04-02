@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
-import { findRandomMatch, cancelRandomMatch, subscribeToMatchFound, subscribeToWaitingForMatch } from '../utils/socket';
+import socket, { findRandomMatch, cancelRandomMatch } from '../utils/socket';
 
 interface RandomMatchModalProps {
   onMatchFound: (roomCode: string, isPlayerX: boolean) => void;
@@ -23,24 +23,19 @@ export const RandomMatchModal = ({ onMatchFound, onClose }: RandomMatchModalProp
   }, [isSearching]);
 
   useEffect(() => {
-    // Handle waiting for match
-    const handleWaiting = () => {
+    // Listen for match found event
+    socket.on('match_found', (data: { roomCode: string; isPlayerX: boolean }) => {
+      onMatchFound(data.roomCode, data.isPlayerX);
+    });
+    
+    // Listen for waiting status
+    socket.on('waiting_for_match', () => {
       setIsSearching(true);
-    };
-    
-    // Handle when a match is found
-    const handleMatchFound = (data: any) => {
-      const isPlayerX = data.players.find((p: any) => p.symbol === 'X')?.id === (window as any).socket?.id;
-      onMatchFound(data.roomCode, isPlayerX);
-    };
-    
-    subscribeToWaitingForMatch(handleWaiting);
-    subscribeToMatchFound(handleMatchFound);
+    });
     
     return () => {
-      if (isSearching) {
-        cancelRandomMatch();
-      }
+      socket.off('match_found');
+      socket.off('waiting_for_match');
     };
   }, [onMatchFound]);
   

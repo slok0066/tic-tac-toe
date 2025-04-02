@@ -1,99 +1,165 @@
-import { io } from 'socket.io-client';
+import { io, Socket } from "socket.io-client";
+import { ClientToServerEvents, ServerToClientEvents } from "../types";
 
-// Determine the server URL based on environment
-const getServerUrl = () => {
-  if (import.meta.env.PROD) {
-    // In production, use the current domain (Vercel deployment)
-    return window.location.origin;
+// Improved error handling for production
+const getServerUrl = (): string => {
+  try {
+    const isProd = import.meta.env.MODE === "production";
+    console.log("Environment mode:", import.meta.env.MODE);
+    
+    let serverUrl: string;
+    
+    if (isProd) {
+      // In production, use the deployed server URL
+      serverUrl = "https://tic-tac-toe-server-production.up.railway.app";
+      console.log("Using production server URL:", serverUrl);
+    } else {
+      // In development, use localhost
+      serverUrl = "http://localhost:3001";
+      console.log("Using development server URL:", serverUrl);
+    }
+    
+    return serverUrl;
+  } catch (error) {
+    console.error("Error determining server URL:", error);
+    // Fallback to production URL if there's an error
+    return "https://tic-tac-toe-server-production.up.railway.app";
   }
-  // In development, use localhost with port
-  return 'http://localhost:3002';
 };
 
-// Initialize socket with the appropriate URL
-const socket = io(getServerUrl(), { 
-  autoConnect: false,
-  transports: ['websocket', 'polling'] 
-});
-
-// Export the socket instance for global use
-export { socket };
-
-export const initializeSocket = () => {
-  if (!socket.connected) {
-    socket.connect();
-  }
-
-  socket.on('connect', () => {
-    console.log('Connected to game server');
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Disconnected from game server');
-  });
-
-  socket.on('error', (error) => {
-    console.error('Socket error:', error);
-  });
+// Create a dummy socket that logs operations instead of failing
+const createDummySocket = (): Socket<ServerToClientEvents, ClientToServerEvents> => {
+  console.warn("Using dummy socket due to connection failure");
+  
+  const dummyEmit = (event: string, ...args: any[]) => {
+    console.log(`[Dummy Socket] Emit "${event}" with args:`, args);
+    return true;
+  };
+  
+  return {
+    id: "dummy-socket-id",
+    connected: false,
+    disconnected: true,
+    active: false,
+    io: null as any,
+    nsp: "",
+    auth: {},
+    volatile: { emit: dummyEmit } as any,
+    timeout: () => ({ emit: dummyEmit } as any),
+    connect: () => ({ emit: dummyEmit } as any),
+    disconnect: () => {},
+    close: () => {},
+    emit: dummyEmit,
+    on: (event: string, callback: Function) => {
+      console.log(`[Dummy Socket] Registered listener for "${event}"`);
+      return {} as any;
+    },
+    once: (event: string, callback: Function) => {
+      console.log(`[Dummy Socket] Registered one-time listener for "${event}"`);
+      return {} as any;
+    },
+    off: () => ({}),
+    listeners: () => [],
+    hasListeners: () => false,
+    onAny: () => ({}),
+    prependAny: () => ({}),
+    offAny: () => ({}),
+    listenersAny: () => [],
+    compress: () => ({}),
+    connect_error: null as any,
+    emitWithAck: () => Promise.resolve({}),
+    onAnyOutgoing: () => ({}),
+    prependAnyOutgoing: () => ({}),
+    offAnyOutgoing: () => ({}),
+    listenersAnyOutgoing: () => []
+  } as Socket<ServerToClientEvents, ClientToServerEvents>;
 };
 
-export const createRoom = () => {
-  socket.emit('createRoom');
+// Initialize socket with retry mechanism
+let socket: Socket<ServerToClientEvents, ClientToServerEvents>;
+
+const initializeSocket = (): Socket<ServerToClientEvents, ClientToServerEvents> => {
+  try {
+    console.log("Initializing socket connection...");
+    const serverUrl = getServerUrl();
+    
+    // Try to connect to the socket server with retry options
+    socket = io(serverUrl, {
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 10000,
+      transports: ["websocket", "polling"]
+    });
+    
+    // Log connection events
+    socket.on("connect", () => {
+      console.log("Socket connected successfully with ID:", socket.id);
+    });
+    
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+    });
+    
+    socket.io.on("reconnect_attempt", (attempt) => {
+      console.log(`Socket reconnection attempt ${attempt}`);
+    });
+    
+    socket.io.on("reconnect_failed", () => {
+      console.error("Socket reconnection failed after all attempts");
+    });
+    
+    return socket;
+  } catch (error) {
+    console.error("Fatal error initializing socket:", error);
+    // Return a dummy socket that won't crash the app
+    return createDummySocket();
+  }
+};
+
+// Initialize the socket once
+if (!globalThis.socket) {
+  console.log("Creating new socket instance");
+  globalThis.socket = initializeSocket();
+} else {
+  console.log("Reusing existing socket instance");
+}
+
+// Export the socket instance
+const socketInstance = globalThis.socket as Socket<ServerToClientEvents, ClientToServerEvents>;
+export default socketInstance;
+
+// Helper functions using the socket instance
+export const createRoom = (roomCode: string): Promise<string> => {
+  socketInstance.emit('create_room', { roomCode });
   return new Promise<string>((resolve) => {
-    socket.once('roomCreated', (roomCode: string) => {
+    socketInstance.once('room_created', () => {
       resolve(roomCode);
     });
   });
 };
 
 export const joinRoom = (roomCode: string) => {
-  socket.emit('joinRoom', roomCode);
+  socketInstance.emit('join_room', { roomCode });
 };
 
 export const findRandomMatch = () => {
-  socket.emit('findMatch');
+  socketInstance.emit('find_random_match');
 };
 
 export const cancelRandomMatch = () => {
-  socket.emit('cancelMatch');
+  socketInstance.emit('cancel_random_match');
 };
 
-export const leaveRoom = (roomCode: string) => {
-  socket.emit('leaveRoom', roomCode);
+export const leaveRoom = () => {
+  socketInstance.emit('leave_room');
 };
 
-export const makeMove = (roomCode: string, position: number) => {
-  socket.emit('makeMove', { roomCode, position });
+export const makeMove = (position: number, symbol: string, board: any[]) => {
+  socketInstance.emit('make_move', { position, symbol, board });
 };
 
-export const subscribeToMoves = (callback: (data: { position: number, symbol: string, board: any[], currentTurn: string }) => void) => {
-  socket.on('moveMade', callback);
-};
-
-export const subscribeToGameStart = (callback: (data: any) => void) => {
-  socket.on('gameStart', callback);
-};
-
-export const subscribeToMatchFound = (callback: (data: any) => void) => {
-  socket.on('matchFound', callback);
-};
-
-export const subscribeToWaitingForMatch = (callback: () => void) => {
-  socket.on('waitingForMatch', callback);
-};
-
-export const subscribeToPlayerLeft = (callback: () => void) => {
-  socket.on('playerLeft', callback);
-};
-
-export const cleanup = () => {
-  socket.off('connect');
-  socket.off('disconnect');
-  socket.off('error');
-  socket.off('moveMade');
-  socket.off('gameStart');
-  socket.off('matchFound');
-  socket.off('waitingForMatch');
-  socket.off('playerLeft');
-  socket.disconnect();
+// Utility function to disconnect and clean up socket
+export const disconnectSocket = () => {
+  socketInstance.disconnect();
+  console.log("Socket disconnected");
 };

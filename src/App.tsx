@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gamepad2, Users, Wifi, ArrowLeft, Globe, Settings as SettingsIcon } from 'lucide-react';
 import { Board } from './components/Board';
@@ -8,15 +8,7 @@ import { RandomMatchModal } from './components/RandomMatchModal';
 import { SettingsModal } from './components/SettingsModal';
 import { checkWinner, getAIMove } from './utils/gameLogic';
 import { GameState, GameMode, Player, Difficulty, RoomStatus, GameSettings } from './types';
-import { 
-  initializeSocket, 
-  makeMove as socketMakeMove, 
-  subscribeToMoves, 
-  subscribeToGameStart, 
-  subscribeToPlayerLeft, 
-  leaveRoom,
-  cleanup 
-} from './utils/socket';
+import socket from './utils/socket';
 import { getThemeClasses, applyTheme } from './utils/theme';
 import { 
   initializeAudio, 
@@ -99,6 +91,26 @@ const GameTimer = ({ enabled, darkMode, startTime }: { enabled: boolean; darkMod
   );
 };
 
+// Add this error boundary component
+class ErrorBoundary extends React.Component<{ children: React.ReactNode, fallback: React.ReactNode }> {
+  state = { hasError: false, error: null };
+  
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Error caught by boundary:", error, errorInfo);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
   const [gameState, setGameState] = useState<GameState>(initialGameState);
@@ -113,9 +125,19 @@ function App() {
   // Initialize socket connection and audio when app loads
   useEffect(() => {
     try {
-      initializeSocket();
+      // Socket is already initialized via the import
+      console.log("App: Socket already initialized", socket.id);
+      // Connect if not already connected
+      if (!socket.connected) {
+        socket.connect();
+      }
+      
       initializeAudio();
-      return cleanup;
+      
+      return () => {
+        // Clean up socket listeners
+        socket.off();
+      };
     } catch (err) {
       console.error("Failed to initialize app:", err);
       setError("Failed to initialize application. Please refresh the page.");
@@ -204,24 +226,26 @@ function App() {
           setError("Connection error. Please check your internet connection and try again.");
         };
 
-        subscribeToMoves(handleOpponentMove);
-        subscribeToGameStart(handleGameStart);
-        subscribeToPlayerLeft(handlePlayerLeft);
+        // Subscribe to opponent moves
+        socket.on('move_made', handleOpponentMove);
         
-        // Handle cleanup on error or unmount
+        // Handle game start event
+        socket.on('game_start', (data: { roomCode: string; isPlayerX: boolean }) => {
+          handleGameStart(data);
+        });
+        
+        // Handle player disconnection
+        socket.on('player_left', handlePlayerLeft);
+        
         return () => {
-          try {
-            if (gameState.roomCode) {
-              leaveRoom(gameState.roomCode);
-            }
-          } catch (err) {
-            console.error("Error cleaning up socket:", err);
-          }
+          // Clean up socket listeners
+          socket.off('move_made');
+          socket.off('game_start');
+          socket.off('player_left');
         };
       } catch (err) {
-        console.error("Error setting up online game:", err);
-        setError("Failed to set up online game. Please try again.");
-        return () => {};
+        console.error("Failed to subscribe to socket events:", err);
+        setError("Connection to game server failed. Please try again.");
       }
     }
   }, [gameMode]);
@@ -230,7 +254,7 @@ function App() {
   useEffect(() => {
     return () => {
       if (gameState.roomCode) {
-        leaveRoom(gameState.roomCode);
+        socket.emit('leave_room');
       }
     };
   }, [gameState.roomCode]);
@@ -270,9 +294,13 @@ function App() {
       showConfetti
     }));
 
-    // Send move to server for online games
-    if (gameMode === 'online' && gameState.roomCode) {
-      socketMakeMove(gameState.roomCode, index);
+    // For online mode, emit move to socket
+    if (gameMode === 'online') {
+      socket.emit('make_move', {
+        position: index,
+        symbol: gameState.currentPlayer,
+        board: newBoard
+      });
     }
   };
 
@@ -339,12 +367,13 @@ function App() {
     setShowDifficultyModal(false);
   };
 
-  const handleCreateRoom = (code: string) => {
+  const handleCreateRoom = (roomCode: string) => {
     playClickSound();
+    socket.emit('create_room', { roomCode });
     setGameMode('online');
     setGameState(prev => ({
       ...prev,
-      roomCode: code,
+      roomCode: roomCode,
       roomStatus: 'waiting',
       playerSymbol: 'X',
       theme: settings.theme
@@ -352,12 +381,13 @@ function App() {
     setShowRoomModal(false);
   };
 
-  const handleJoinRoom = (code: string) => {
+  const handleJoinRoom = (roomCode: string) => {
     playClickSound();
+    socket.emit('join_room', { roomCode });
     setGameMode('online');
     setGameState(prev => ({
       ...prev,
-      roomCode: code,
+      roomCode: roomCode,
       roomStatus: 'joining',
       playerSymbol: 'O',
       theme: settings.theme
@@ -402,7 +432,7 @@ function App() {
     playClickSound();
     // Clean up any ongoing games or connections
     if (gameState.roomCode) {
-      leaveRoom(gameState.roomCode);
+      socket.emit('leave_room');
     }
     setGameMode(null);
     setGameState({...initialGameState, theme: settings.theme});
@@ -632,164 +662,187 @@ function App() {
   }
 
   return (
-    <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4 relative overflow-hidden`}>
-      {/* Subtle animated background for the game board */}
-      <div className="absolute inset-0 overflow-hidden">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <motion.div
-            key={i}
-            className={`absolute rounded-full ${settings.darkMode ? 'bg-gray-600' : 'bg-white'} opacity-10`}
-            initial={{
-              x: `${Math.random() * 100}vw`,
-              y: `${Math.random() * 100}vh`,
-              scale: Math.random() * 0.5 + 0.5,
-            }}
-            animate={{
-              y: [`${Math.random() * 100}vh`, `${Math.random() * 100}vh`],
-              x: [`${Math.random() * 100}vw`, `${Math.random() * 100}vw`],
-            }}
-            transition={{
-              duration: Math.random() * 20 + 10,
-              repeat: Infinity,
-              repeatType: "reverse",
-            }}
-            style={{
-              width: `${Math.random() * 100 + 50}px`,
-              height: `${Math.random() * 100 + 50}px`,
-              filter: 'blur(8px)',
-            }}
-          />
-        ))}
-      </div>
-      
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`${contentBgClass} backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/50 relative`}
-        transition={{ 
-          duration: settings.animationSpeed === 'slow' ? 0.7 : 
-                    settings.animationSpeed === 'medium' ? 0.5 : 0.3 
-        }}
-      >
-        {settings.showTimer && <GameTimer enabled={!!gameMode} darkMode={settings.darkMode} startTime={gameStartTime} />}
-        
-        <div className="text-center mb-6 relative h-10">
-          <div className="absolute left-0 h-10 w-10 flex items-center justify-center">
-          <motion.button
-              whileHover={{ scale: settings.showAnimations ? 1.1 : 1 }}
-              whileTap={{ scale: settings.showAnimations ? 0.9 : 1 }}
-              className={`${buttonBgClass} p-2 rounded-full shadow-md`}
-              onClick={handleBackToMenu}
+    <ErrorBoundary
+      fallback={
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+          <div className="bg-white/10 backdrop-blur-md p-8 rounded-xl shadow-xl max-w-md w-full">
+            <h1 className="text-2xl font-bold mb-4">Oops! Something went wrong</h1>
+            <p className="mb-6">We encountered an error while loading the game. Please try the following:</p>
+            <ul className="list-disc pl-5 mb-6">
+              <li className="mb-2">Refresh the page</li>
+              <li className="mb-2">Clear your browser cache</li>
+              <li className="mb-2">Try a different browser</li>
+              <li>If the problem persists, please try again later</li>
+            </ul>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
-          </motion.button>
+              Refresh Page
+            </button>
           </div>
-          
-          <div className="absolute right-0 h-10 w-10 flex items-center justify-center">
-            <SettingsButton 
-              onClick={() => setShowSettingsModal(true)} 
-              className={buttonBgClass}
+        </div>
+      }
+    >
+      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4 relative overflow-hidden`}>
+        {/* Subtle animated background for the game board */}
+        <div className="absolute inset-0 overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <motion.div
+              key={i}
+              className={`absolute rounded-full ${settings.darkMode ? 'bg-gray-600' : 'bg-white'} opacity-10`}
+              initial={{
+                x: `${Math.random() * 100}vw`,
+                y: `${Math.random() * 100}vh`,
+                scale: Math.random() * 0.5 + 0.5,
+              }}
+              animate={{
+                y: [`${Math.random() * 100}vh`, `${Math.random() * 100}vh`],
+                x: [`${Math.random() * 100}vw`, `${Math.random() * 100}vw`],
+              }}
+              transition={{
+                duration: Math.random() * 20 + 10,
+                repeat: Infinity,
+                repeatType: "reverse",
+              }}
+              style={{
+                width: `${Math.random() * 100 + 50}px`,
+                height: `${Math.random() * 100 + 50}px`,
+                filter: 'blur(8px)',
+              }}
             />
-          </div>
-          
-          <div className="inline-block">
-            <motion.h1 
-              className={`text-3xl font-bold ${settings.darkMode ? 'text-white' : `bg-gradient-to-r ${gradientClass} text-transparent bg-clip-text`} mb-2`}
-              initial={{ y: -10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-            >
-            Tic Tac Toe
-            </motion.h1>
-          </div>
+          ))}
         </div>
         
-        <div className="text-center mb-4">
-          {gameMode === 'ai' && (
-            <motion.p 
-              className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              AI Difficulty: <span className={`font-semibold ${gameState.difficulty === 'god' ? 'text-red-500' : ''}`}>{gameState.difficulty}</span>
-            </motion.p>
-          )}
-          {gameMode === 'online' && gameState.roomCode && (
-            <motion.p 
-              className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              Room: <span className="font-mono font-semibold">{gameState.roomCode}</span>
-              {gameState.playerSymbol && <span className="ml-2">(You: {gameState.playerSymbol})</span>}
-            </motion.p>
-          )}
-          <motion.p 
-            className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            {getGameStatus()}
-          </motion.p>
-        </div>
-
-        <Board
-          board={gameState.board}
-          onCellClick={(index) => {
-            // Try to trigger haptic feedback if enabled
-            if (settings.hapticFeedback && 'navigator' in window && 'vibrate' in navigator) {
-              try {
-                navigator.vibrate(50);
-              } catch (e) {
-                console.log('Vibration not supported');
-              }
-            }
-            handleCellClick(index);
-          }}
-          currentPlayer={gameState.currentPlayer}
-          winningLine={gameState.winningLine}
-          disabled={
-            (gameMode === 'ai' && gameState.currentPlayer === 'O') ||
-            (gameMode === 'online' && gameState.currentPlayer !== gameState.playerSymbol) ||
-            gameState.roomStatus === 'waiting' || 
-            gameState.roomStatus === 'joining' ||
-            gameState.roomStatus === 'ended'
-          }
-          winner={gameState.winner}
-          theme={settings.theme}
-          settings={settings}
-        />
-
-        <motion.div 
-          className="mt-6 flex justify-center space-x-4"
-          initial={{ opacity: 0, y: 10 }}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          className={`${contentBgClass} backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/50 relative`}
+          transition={{ 
+            duration: settings.animationSpeed === 'slow' ? 0.7 : 
+                      settings.animationSpeed === 'medium' ? 0.5 : 0.3 
+          }}
         >
-          <motion.button
-            whileHover={{ scale: settings.showAnimations ? 1.05 : 1, y: -2 }}
-            whileTap={{ scale: settings.showAnimations ? 0.95 : 1, y: 0 }}
-            className={`px-6 py-2 bg-gradient-to-r ${primaryClass} rounded-lg text-white hover:from-blue-600 hover:to-blue-700 font-semibold shadow-md`}
-            onClick={resetGame}
-          >
-            New Game
-          </motion.button>
-        </motion.div>
-      </motion.div>
-      
-      <AnimatePresence>
-        {showSettingsModal && (
-          <SettingsModal
+          {settings.showTimer && <GameTimer enabled={!!gameMode} darkMode={settings.darkMode} startTime={gameStartTime} />}
+          
+          <div className="text-center mb-6 relative h-10">
+            <div className="absolute left-0 h-10 w-10 flex items-center justify-center">
+            <motion.button
+                whileHover={{ scale: settings.showAnimations ? 1.1 : 1 }}
+                whileTap={{ scale: settings.showAnimations ? 0.9 : 1 }}
+                className={`${buttonBgClass} p-2 rounded-full shadow-md`}
+                onClick={handleBackToMenu}
+              >
+                <ArrowLeft className="w-5 h-5" />
+            </motion.button>
+            </div>
+            
+            <div className="absolute right-0 h-10 w-10 flex items-center justify-center">
+              <SettingsButton 
+                onClick={() => setShowSettingsModal(true)} 
+                className={buttonBgClass}
+              />
+            </div>
+            
+            <div className="inline-block">
+              <motion.h1 
+                className={`text-3xl font-bold ${settings.darkMode ? 'text-white' : `bg-gradient-to-r ${gradientClass} text-transparent bg-clip-text`} mb-2`}
+                initial={{ y: -10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+              >
+              Tic Tac Toe
+              </motion.h1>
+            </div>
+          </div>
+          
+          <div className="text-center mb-4">
+            {gameMode === 'ai' && (
+              <motion.p 
+                className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                AI Difficulty: <span className={`font-semibold ${gameState.difficulty === 'god' ? 'text-red-500' : ''}`}>{gameState.difficulty}</span>
+              </motion.p>
+            )}
+            {gameMode === 'online' && gameState.roomCode && (
+              <motion.p 
+                className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                Room: <span className="font-mono font-semibold">{gameState.roomCode}</span>
+                {gameState.playerSymbol && <span className="ml-2">(You: {gameState.playerSymbol})</span>}
+              </motion.p>
+            )}
+            <motion.p 
+              className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              {getGameStatus()}
+            </motion.p>
+          </div>
+
+          <Board
+            board={gameState.board}
+            onCellClick={(index) => {
+              // Try to trigger haptic feedback if enabled
+              if (settings.hapticFeedback && 'navigator' in window && 'vibrate' in navigator) {
+                try {
+                  navigator.vibrate(50);
+                } catch (e) {
+                  console.log('Vibration not supported');
+                }
+              }
+              handleCellClick(index);
+            }}
+            currentPlayer={gameState.currentPlayer}
+            winningLine={gameState.winningLine}
+            disabled={
+              (gameMode === 'ai' && gameState.currentPlayer === 'O') ||
+              (gameMode === 'online' && gameState.currentPlayer !== gameState.playerSymbol) ||
+              gameState.roomStatus === 'waiting' || 
+              gameState.roomStatus === 'joining' ||
+              gameState.roomStatus === 'ended'
+            }
+            winner={gameState.winner}
+            theme={settings.theme}
             settings={settings}
-            onSave={handleSaveSettings}
-            onClose={() => setShowSettingsModal(false)}
           />
-        )}
-      </AnimatePresence>
-    </div>
+
+          <motion.div 
+            className="mt-6 flex justify-center space-x-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <motion.button
+              whileHover={{ scale: settings.showAnimations ? 1.05 : 1, y: -2 }}
+              whileTap={{ scale: settings.showAnimations ? 0.95 : 1, y: 0 }}
+              className={`px-6 py-2 bg-gradient-to-r ${primaryClass} rounded-lg text-white hover:from-blue-600 hover:to-blue-700 font-semibold shadow-md`}
+              onClick={resetGame}
+            >
+              New Game
+            </motion.button>
+          </motion.div>
+        </motion.div>
+        
+        <AnimatePresence>
+          {showSettingsModal && (
+            <SettingsModal
+              settings={settings}
+              onSave={handleSaveSettings}
+              onClose={() => setShowSettingsModal(false)}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    </ErrorBoundary>
   );
 }
 
