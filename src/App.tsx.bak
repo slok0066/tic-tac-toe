@@ -1,0 +1,633 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Gamepad2, Users, Wifi, ArrowLeft, Globe, Settings as SettingsIcon, Settings, ChevronLeft, XCircle, Plus, Volume, VolumeX } from 'lucide-react';
+import { Board } from './components/Board';
+import { DifficultyModal } from './components/DifficultyModal';
+import { RoomModal } from './components/RoomModal';
+import { RandomMatchModal } from './components/RandomMatchModal';
+import { SettingsModal } from './components/SettingsModal';
+import { Confetti } from './components/Confetti';
+import { checkWinner, getAIMove } from './utils/gameLogic';
+import { GameState, GameMode, Player, Difficulty, RoomStatus, GameSettings, Theme, SymbolStyle, BoardStyle } from './types';
+import { 
+  initializeSocket, 
+  makeMove as socketMakeMove, 
+  subscribeToMoves, 
+  subscribeToGameStart, 
+  subscribeToPlayerLeft, 
+  leaveRoom,
+  cleanup,
+  connectToServer,
+  disconnectFromServer,
+  joinRoom
+} from './utils/socket';
+import { getThemeClasses, applyTheme, getPageBg } from './utils/theme';
+import { 
+  initializeAudio, 
+  playMoveSound, 
+  playResultSound, 
+  playClickSound,
+  setSoundEnabled,
+  toggleBackgroundMusic,
+  playButtonSound
+} from './utils/sounds';
+import { GameModeSelector } from './components/GameModeSelector';
+
+const initialGameState: GameState = {
+  board: Array(9).fill(null),
+  currentPlayer: 'X',
+  winner: null,
+  winningLine: null,
+  theme: 'blue',
+  showConfetti: false
+};
+
+const initialSettings: GameSettings = {
+  theme: 'blue',
+  soundEnabled: true,
+  showAnimations: true,
+  showHints: true,
+  vibrationEnabled: false,
+  symbolStyle: 'default',
+  boardStyle: 'classic',
+  darkMode: false,
+  confettiType: 'basic',
+  autoPlayMusic: false
+};
+
+function App() {
+  const [gameMode, setGameMode] = useState<GameMode | null>(null);
+  const [gameState, setGameState] = useState<GameState>(initialGameState);
+  const [settings, setSettings] = useState<GameSettings>(() => {
+    const savedSettings = localStorage.getItem('ticTacToeSettings');
+    return savedSettings ? JSON.parse(savedSettings) : initialSettings;
+  });
+  const [showDifficultyModal, setShowDifficultyModal] = useState(false);
+  const [showRoomModal, setShowRoomModal] = useState(false);
+  const [showRandomMatchModal, setShowRandomMatchModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isConnectionPending, setIsConnectionPending] = useState(false);
+
+  // Initialize socket connection and audio when app loads
+  useEffect(() => {
+    initializeSocket();
+    initializeAudio();
+    return cleanup;
+  }, []);
+
+  // Update sound enabled state when settings change
+  useEffect(() => {
+    setSoundEnabled(settings.soundEnabled);
+  }, [settings.soundEnabled]);
+
+  // Toggle background music based on settings
+  useEffect(() => {
+    toggleBackgroundMusic(settings.autoPlayMusic);
+  }, [settings.autoPlayMusic]);
+
+  // Subscribe to socket events for online play
+  useEffect(() => {
+    if (gameMode === 'online') {
+      // Handle incoming moves from opponent
+      const handleOpponentMove = (data: { position: number; symbol: string; board: any[]; currentTurn: string }) => {
+        setGameState(prev => {
+          const { winner, line } = checkWinner(data.board);
+          
+          // Play move sound
+          playMoveSound(data.symbol as Player);
+          
+          // Show confetti if there's a winner
+          const showConfetti = winner && winner !== 'draw';
+          
+          if (winner) {
+            // Small delay to ensure sound plays after the move sound
+            setTimeout(() => {
+              playResultSound(winner === 'draw' ? 'draw' : 'win');
+              console.log(`Online: Playing ${winner === 'draw' ? 'draw' : 'win'} sound`);
+            }, 300);
+          }
+          
+          return {
+            ...prev,
+            board: data.board,
+            currentPlayer: data.currentTurn,
+            winner,
+            winningLine: line,
+            showConfetti
+          };
+        });
+      };
+
+      // Handle game start event
+      const handleGameStart = (data: any) => {
+        setGameState(prev => ({
+          ...prev,
+          roomStatus: 'playing',
+          playerSymbol: data.players.find((p: any) => p.id === (window as any).socket?.id)?.symbol || 'X',
+          currentPlayer: 'X' // Game always starts with X
+        }));
+      };
+
+      // Handle player leaving
+      const handlePlayerLeft = () => {
+        setGameState(prev => ({
+          ...prev,
+          roomStatus: 'ended'
+        }));
+        alert("Your opponent has left the game.");
+      };
+
+      subscribeToMoves(handleOpponentMove);
+      subscribeToGameStart(handleGameStart);
+      subscribeToPlayerLeft(handlePlayerLeft);
+    }
+  }, [gameMode]);
+
+  // Cleanup when leaving a room
+  useEffect(() => {
+    return () => {
+      if (gameState.roomCode) {
+        leaveRoom(gameState.roomCode);
+      }
+    };
+  }, [gameState.roomCode]);
+
+  const handleCellClick = (index: number) => {
+    if (gameState.board[index] || gameState.winner) return;
+
+    // For online games, only allow moves for the current player
+    if (gameMode === 'online' && gameState.currentPlayer !== gameState.playerSymbol) return;
+
+    const newBoard = [...gameState.board];
+    newBoard[index] = gameState.currentPlayer;
+    
+    // Play move sound
+    playMoveSound(gameState.currentPlayer);
+    
+    const { winner, line } = checkWinner(newBoard);
+    
+    // Play result sound if game ended with more reliable triggering
+    if (winner) {
+      // Small delay to ensure sound plays after the move sound
+      setTimeout(() => {
+        if (winner === 'draw') {
+          playResultSound('draw');
+          console.log('Playing draw sound');
+        } else {
+          playResultSound('win');
+          console.log('Playing win sound');
+        }
+      }, 300);
+    }
+    
+    // Update local game state
+    setGameState(prev => ({
+      ...prev,
+      board: newBoard,
+      currentPlayer: prev.currentPlayer === 'X' ? 'O' : 'X',
+      winner,
+      winningLine: line,
+      showConfetti: winner && winner !== 'draw'
+    }));
+
+    // Send move to server for online games
+    if (gameMode === 'online' && gameState.roomCode) {
+      socketMakeMove(gameState.roomCode, index);
+    }
+  };
+
+  // AI move logic
+  useEffect(() => {
+    if (gameMode === 'ai' && gameState.currentPlayer === 'O' && !gameState.winner && gameState.difficulty) {
+      const timer = setTimeout(() => {
+        const aiMove = getAIMove(gameState.board, gameState.difficulty!);
+        
+        // Only make a move if aiMove is valid
+        if (aiMove >= 0) {
+          handleCellClick(aiMove);
+        }
+      }, 600);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.currentPlayer, gameMode, gameState.board, gameState.difficulty, gameState.winner]);
+
+  const resetGame = () => {
+    playClickSound();
+    setGameState(prev => ({ 
+      ...initialGameState, 
+      difficulty: prev.difficulty,
+      roomCode: prev.roomCode,
+      playerSymbol: prev.playerSymbol,
+      roomStatus: prev.roomStatus,
+      theme: settings.theme
+    }));
+  };
+
+  const handleGameModeSelect = (mode: GameMode) => {
+    // Initialize audio on first user interaction
+    initializeAudio();
+    playClickSound();
+    
+    if (mode === 'ai') {
+      setShowDifficultyModal(true);
+    } else if (mode === 'online') {
+      setIsConnectionPending(true);
+      connectToServer()
+        .then(() => {
+          // Successfully connected, generate a room code
+          const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+          joinRoom(roomCode, (data) => {
+            setGameState((prev) => ({
+              ...prev,
+              roomCode: data.roomCode,
+              playerSymbol: data.playerSymbol,
+              roomStatus: data.status,
+            }));
+          });
+          setIsConnectionPending(false);
+        })
+        .catch((error) => {
+          console.error('Failed to connect:', error);
+          setIsConnectionPending(false);
+          setGameMode(null);
+          alert('Failed to connect to the server. Please try again.');
+        });
+    } else if (mode === 'random') {
+      setIsConnectionPending(true);
+      connectToServer()
+        .then(() => {
+          // Join a random room
+          joinRoom('RANDOM', (data) => {
+            setGameState((prev) => ({
+              ...prev,
+              roomCode: data.roomCode,
+              playerSymbol: data.playerSymbol,
+              roomStatus: data.status,
+            }));
+          });
+          setIsConnectionPending(false);
+        })
+        .catch((error) => {
+          console.error('Failed to connect:', error);
+          setIsConnectionPending(false);
+          setGameMode(null);
+          alert('Failed to connect to the server. Please try again.');
+        });
+    } else {
+      setGameMode(mode);
+      resetGame();
+    }
+  };
+
+  const handleDifficultySelect = (difficulty: Difficulty) => {
+    playClickSound();
+    setGameMode('ai');
+    setGameState(prev => ({ ...prev, difficulty, theme: settings.theme }));
+    setShowDifficultyModal(false);
+  };
+
+  const handleCreateRoom = (code: string) => {
+    playClickSound();
+    setGameMode('online');
+    setGameState(prev => ({
+      ...prev,
+      roomCode: code,
+      roomStatus: 'waiting',
+      playerSymbol: 'X',
+      theme: settings.theme
+    }));
+    setShowRoomModal(false);
+  };
+
+  const handleJoinRoom = (code: string) => {
+    playClickSound();
+    setGameMode('online');
+    setGameState(prev => ({
+      ...prev,
+      roomCode: code,
+      roomStatus: 'joining',
+      playerSymbol: 'O',
+      theme: settings.theme
+    }));
+    setShowRoomModal(false);
+  };
+
+  const handleRandomMatch = (roomCode: string, isPlayerX: boolean) => {
+    playClickSound();
+    setGameMode('online');
+    setGameState(prev => ({
+      ...prev,
+      roomCode: roomCode,
+      roomStatus: 'playing',
+      playerSymbol: isPlayerX ? 'X' : 'O',
+      theme: settings.theme
+    }));
+    setShowRandomMatchModal(false);
+  };
+
+  const handleSaveSettings = (newSettings: GameSettings) => {
+    // Initialize audio if needed
+    initializeAudio();
+    playClickSound();
+    setSettings(newSettings);
+    setGameState(prev => ({
+      ...prev,
+      theme: newSettings.theme
+    }));
+  };
+
+  const getGameStatus = () => {
+    if (gameState.winner === 'draw') return "It's a draw!";
+    if (gameState.winner) return `${gameState.winner} wins!`;
+    if (gameState.roomStatus === 'waiting') return "Waiting for opponent...";
+    if (gameState.roomStatus === 'joining') return "Joining game...";
+    if (gameState.roomStatus === 'ended') return "Opponent left the game";
+    return `${gameState.currentPlayer}'s turn`;
+  };
+
+  const handleBackToMenu = () => {
+    playClickSound();
+    // Clean up any ongoing games or connections
+    if (gameState.roomCode) {
+      leaveRoom(gameState.roomCode);
+    }
+    setGameMode(null);
+    setGameState({...initialGameState, theme: settings.theme});
+  };
+
+  const bgClass = applyTheme(settings.theme, "bg-gradient-to-br", 'bg');
+  const primaryClass = getThemeClasses(settings.theme, 'primary');
+  const secondaryClass = getThemeClasses(settings.theme, 'secondary');
+  const gradientClass = getThemeClasses(settings.theme, 'gradient');
+
+  // Ensure the background adapts to dark mode
+  const getDarkModeClass = () => {
+    return settings.darkMode ? 'dark' : '';
+  };
+
+  // Get background class considering dark mode
+  const getPageBg = () => {
+    if (settings.darkMode) {
+      return 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900';
+    }
+    return bgClass;
+  };
+
+  // Add vibration feedback on actions if enabled
+  const vibrate = (duration: number, settings: GameSettings) => {
+    if (settings.vibrationEnabled && navigator.vibrate) {
+      navigator.vibrate(duration);
+    }
+  };
+
+  if (!gameMode) {
+    return (
+      <div className={`min-h-screen ${getPageBg()} ${getDarkModeClass()}`}>
+        <div className="container mx-auto max-w-md p-4 md:p-4 p-2 flex flex-col items-center justify-center min-h-screen">
+          {/* Settings button - always visible */}
+          <motion.button
+            onClick={() => {
+              playButtonSound();
+              vibrate(15, settings);
+              setShowSettingsModal(true);
+            }}
+            className={`fixed top-4 right-4 z-50 p-2 rounded-full ${
+              settings.darkMode 
+                ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' 
+                : 'bg-white text-gray-800 shadow-md hover:bg-gray-100'
+            } transition-all`}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <Settings className="w-6 h-6 md:w-6 md:h-6 w-5 h-5" />
+          </motion.button>
+
+          {/* Sound toggle button */}
+          <motion.button
+            onClick={() => {
+              setSettings(prev => ({
+                ...prev,
+                soundEnabled: !prev.soundEnabled
+              }));
+              vibrate(15, settings);
+            }}
+            className={`fixed top-4 left-4 z-50 p-2 rounded-full ${
+              settings.darkMode 
+                ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' 
+                : 'bg-white text-gray-800 shadow-md hover:bg-gray-100'
+            } transition-all`}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            {settings.soundEnabled ? (
+              <Volume className="w-6 h-6 md:w-6 md:h-6 w-5 h-5" />
+            ) : (
+              <VolumeX className="w-6 h-6 md:w-6 md:h-6 w-5 h-5" />
+            )}
+          </motion.button>
+
+          {/* Main Menu */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="main-menu"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full flex flex-col items-center"
+            >
+              <motion.h1 
+                className={`text-4xl md:text-4xl text-3xl font-extrabold mb-8 md:mb-8 mb-6 ${settings.darkMode ? 'text-white' : 'text-gray-800'}`}
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 300, 
+                  damping: 15 
+                }}
+              >
+                Tic Tac Toe
+              </motion.h1>
+              <GameModeSelector onSelect={handleGameModeSelect} theme={settings.theme} darkMode={settings.darkMode} />
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Modals */}
+          {showSettingsModal && (
+            <SettingsModal
+              settings={settings}
+              onSave={handleSaveSettings}
+              onClose={() => setShowSettingsModal(false)}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`min-h-screen ${getPageBg()} ${getDarkModeClass()}`}>
+      <div className="container mx-auto max-w-md p-4 md:p-4 p-2 flex flex-col items-center justify-center min-h-screen">
+        {/* Settings button - always visible */}
+        <motion.button
+          onClick={() => {
+            playButtonSound();
+            vibrate(15, settings);
+            setShowSettingsModal(true);
+          }}
+          className={`fixed top-4 right-4 z-50 p-2 rounded-full ${
+            settings.darkMode 
+              ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' 
+              : 'bg-white text-gray-800 shadow-md hover:bg-gray-100'
+          } transition-all`}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+        >
+          <Settings className="w-6 h-6 md:w-6 md:h-6 w-5 h-5" />
+        </motion.button>
+
+        {/* Sound toggle button */}
+        <motion.button
+          onClick={() => {
+            setSettings(prev => ({
+              ...prev,
+              soundEnabled: !prev.soundEnabled
+            }));
+            vibrate(15, settings);
+          }}
+          className={`fixed top-4 left-4 z-50 p-2 rounded-full ${
+            settings.darkMode 
+              ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' 
+              : 'bg-white text-gray-800 shadow-md hover:bg-gray-100'
+          } transition-all`}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+        >
+          {settings.soundEnabled ? (
+            <Volume className="w-6 h-6 md:w-6 md:h-6 w-5 h-5" />
+          ) : (
+            <VolumeX className="w-6 h-6 md:w-6 md:h-6 w-5 h-5" />
+          )}
+        </motion.button>
+
+        {/* Game Board */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key="game-board"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="w-full"
+          >
+            <div className="flex justify-between items-center mb-6 md:mb-6 mb-4">
+              <motion.button
+                onClick={handleBackToMenu}
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg ${
+                  settings.darkMode 
+                    ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' 
+                    : 'bg-white text-gray-700 shadow hover:bg-gray-50'
+                }`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Back</span>
+              </motion.button>
+              
+              <h2 className={`text-xl md:text-xl text-lg font-bold ${settings.darkMode ? 'text-white' : 'text-gray-800'}`}>
+                {gameMode === 'ai'
+                  ? `Playing vs AI (${gameState.difficulty})`
+                  : gameMode === 'friend'
+                  ? 'Playing vs Friend'
+                  : gameMode === 'online'
+                  ? 'Online Game'
+                  : 'Random Match'}
+              </h2>
+              
+              <div style={{ width: '88px' }}></div> {/* Spacer for alignment */}
+            </div>
+
+            {isConnectionPending ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <div className="loading-spinner mb-4"></div>
+                <p className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Connecting...</p>
+              </div>
+            ) : (
+              <>
+                {getGameStatus() && (
+                  <div className={`text-center mb-4 p-2 text-sm md:text-base rounded ${
+                    settings.darkMode ? 'bg-gray-800 text-gray-200' : 'bg-blue-50 text-blue-600'
+                  }`}>
+                    {getGameStatus()}
+                  </div>
+                )}
+                
+                <div className="mb-4 text-center">
+                  <p className={`text-lg md:text-lg text-base font-medium ${settings.darkMode ? 'text-white' : 'text-gray-700'}`}>
+                    {gameState.winner
+                      ? gameState.winner === 'draw'
+                        ? "It's a draw!"
+                        : `Player ${gameState.winner} wins!`
+                      : `Current turn: Player ${gameState.currentPlayer}`}
+                  </p>
+                </div>
+
+                <Board
+                  board={gameState.board}
+                  onCellClick={handleCellClick}
+                  currentPlayer={gameState.currentPlayer}
+                  winningLine={gameState.winningLine}
+                  disabled={!!gameState.winner}
+                  winner={gameState.winner}
+                  theme={settings.theme}
+                  settings={settings}
+                />
+                
+                {gameState.winner && (
+                  <motion.button
+                    onClick={() => {
+                      resetGame();
+                      vibrate(25, settings);
+                      playButtonSound();
+                    }}
+                    className={`mt-6 md:mt-6 mt-4 px-6 py-3 rounded-full ${getThemeClasses(settings.theme, 'button')} flex items-center gap-2 mx-auto`}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>New Game</span>
+                  </motion.button>
+                )}
+              </>
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Show confetti on win */}
+        {gameState.showConfetti && settings.showAnimations && (
+          <Confetti type={settings.confettiType} />
+        )}
+
+        {/* Modals */}
+        {showDifficultyModal && (
+          <DifficultyModal
+            onSelect={handleDifficultySelect}
+            onClose={() => setShowDifficultyModal(false)}
+          />
+        )}
+
+        {showSettingsModal && (
+          <SettingsModal
+            settings={settings}
+            onSave={handleSaveSettings}
+            onClose={() => setShowSettingsModal(false)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App;
