@@ -16,6 +16,9 @@ const socket = io(getServerUrl(), {
   transports: ['websocket', 'polling'] 
 });
 
+// Export the socket instance for global use
+export { socket };
+
 export const initializeSocket = () => {
   if (!socket.connected) {
     socket.connect();
