@@ -7,4 +7,13 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-    plan: free 
+    plan: free
+  - type: web
+    name: tic-tac-toe-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html 
