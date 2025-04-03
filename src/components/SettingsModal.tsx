@@ -52,15 +52,17 @@ const ToggleSwitch = ({
 }) => (
   <motion.button
     onClick={onChange}
-    className={`${size === 'small' ? 'w-10 h-5' : 'w-12 h-6'} rounded-full transition-colors flex items-center px-0.5 ${
+    className={`${size === 'small' ? 'w-12 h-6' : 'w-14 h-7'} rounded-full transition-colors flex items-center px-0.5 ${
       enabled ? `${activeColor} justify-end` : 'bg-gray-300 dark:bg-gray-600 justify-start'
-    }`}
-    whileTap={{ scale: 0.9 }}
+    } shadow-inner touch-manipulation`}
+    whileTap={{ scale: 0.95 }}
     layout
+    aria-checked={enabled}
+    role="switch"
   >
     <motion.div 
       layout
-      className={`${size === 'small' ? 'w-3.5 h-3.5' : 'w-5 h-5'} bg-white rounded-full shadow-md`}
+      className={`${size === 'small' ? 'w-5 h-5' : 'w-6 h-6'} bg-white rounded-full shadow-md`}
       transition={{ type: "spring", stiffness: 500, damping: 30 }}
     />
   </motion.button>
@@ -94,19 +96,20 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
         transition={{ type: "spring", damping: 25 }}
-        className={`${currentSettings.darkMode ? 'bg-gray-900/90 text-white' : 'bg-white/95 text-gray-800'} backdrop-blur-sm rounded-2xl p-6 max-w-md w-full relative overflow-y-auto max-h-[90vh] shadow-2xl border ${currentSettings.darkMode ? 'border-gray-700' : 'border-gray-200'}`}
+        className={`${currentSettings.darkMode ? 'bg-gray-900/90 text-white' : 'bg-white/95 text-gray-800'} backdrop-blur-sm rounded-2xl p-4 sm:p-6 max-w-md w-full relative overflow-y-auto max-h-[90vh] shadow-2xl border ${currentSettings.darkMode ? 'border-gray-700' : 'border-gray-200'}`}
       >
         <motion.button
           whileHover={{ scale: 1.1, rotate: 90 }}
           whileTap={{ scale: 0.9 }}
           onClick={onClose}
-          className={`absolute right-4 top-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ${currentSettings.darkMode ? 'bg-gray-800' : 'bg-gray-100'} p-2 rounded-full z-10`}
+          className={`absolute right-3 top-3 sm:right-4 sm:top-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ${currentSettings.darkMode ? 'bg-gray-800' : 'bg-gray-100'} p-2 rounded-full z-10 touch-manipulation`}
+          aria-label="Close settings"
         >
           <X size={18} />
         </motion.button>
         
         <motion.h2 
-          className={`text-2xl font-bold ${currentSettings.darkMode ? 'text-white' : 'text-gray-800'} mb-6`}
+          className={`text-xl sm:text-2xl font-bold ${currentSettings.darkMode ? 'text-white' : 'text-gray-800'} mb-4 sm:mb-6`}
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -114,7 +117,7 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
           Game Settings
         </motion.h2>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Appearance Settings */}
           <SettingsSection 
             title="Appearance" 
@@ -123,7 +126,7 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
           >
             {/* Display Mode */}
             <div className="flex justify-between items-center">
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 text-sm sm:text-base">
                 {currentSettings.darkMode ? 
                   <Moon className="w-5 h-5 text-blue-400" /> : 
                   <Sun className="w-5 h-5 text-yellow-500" />
@@ -148,13 +151,13 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.1 + idx * 0.05 }}
                     onClick={() => setCurrentSettings(prev => ({ ...prev, theme: theme.value }))}
-                    className={`h-12 rounded-lg transition-all ${theme.color} ${
+                    className={`h-10 sm:h-12 rounded-lg transition-all ${theme.color} ${
                       currentSettings.theme === theme.value 
                         ? 'ring-2 ring-offset-2 dark:ring-offset-gray-900 scale-110 shadow-lg' 
                         : 'opacity-60 hover:opacity-100 hover:shadow-md'
-                    }`}
+                    } touch-manipulation`}
                     aria-label={`${theme.label} theme`}
-                    whileHover={{ y: -3, scale: 1.05 }}
+                    whileHover={{ y: -2, scale: 1.05 }}
                     whileTap={{ y: 0 }}
                   />
               ))}
@@ -170,8 +173,8 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
           >
             {/* Animations Toggle */}
             <div className="flex justify-between items-center">
-              <div>
-                <span className="flex items-center gap-2">
+              <div className="flex-1 mr-3">
+                <span className="flex items-center gap-2 text-sm sm:text-base">
                   <Sparkles className="w-5 h-5 text-yellow-500" />
                   Animations
                 </span>
@@ -207,11 +210,11 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.1 + idx * 0.05 }}
                       onClick={() => setCurrentSettings(prev => ({ ...prev, animationSpeed: speed }))}
-                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
+                      className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
                         currentSettings.animationSpeed === speed
                           ? `${currentSettings.darkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`
                           : `${currentSettings.darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`
-                      }`}
+                      } touch-manipulation`}
                       whileHover={{ y: -2 }}
                       whileTap={{ y: 0 }}
                     >
@@ -224,8 +227,8 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
             
             {/* Hints Toggle */}
             <div className="flex justify-between items-center">
-              <div>
-                <span className="flex items-center gap-2">
+              <div className="flex-1 mr-3">
+                <span className="flex items-center gap-2 text-sm sm:text-base">
                   <Zap className="w-5 h-5 text-amber-500" />
                   Show Hints
                 </span>
@@ -246,8 +249,8 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
           >
             {/* Sound Toggle */}
             <div className="flex justify-between items-center">
-              <div>
-                <span className="flex items-center gap-2">
+              <div className="flex-1 mr-3">
+                <span className="flex items-center gap-2 text-sm sm:text-base">
                   {currentSettings.soundEnabled ? 
                     <Volume2 className="w-5 h-5 text-green-500" /> : 
                     <VolumeX className="w-5 h-5 text-gray-500" />
@@ -283,7 +286,7 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
                     step="5"
                     value={currentSettings.volume}
                     onChange={(e) => setCurrentSettings(prev => ({ ...prev, volume: parseInt(e.target.value) }))}
-                    className="w-full appearance-none rounded-lg h-2 outline-none cursor-pointer"
+                    className="w-full appearance-none rounded-lg h-4 outline-none cursor-pointer touch-manipulation"
                     style={{
                       background: `linear-gradient(to right, #10b981 0%, #10b981 ${currentSettings.volume}%, ${currentSettings.darkMode ? '#374151' : '#e5e7eb'} ${currentSettings.volume}%, ${currentSettings.darkMode ? '#374151' : '#e5e7eb'} 100%)`
                     }}
@@ -299,8 +302,8 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
             
             {/* Haptic Feedback */}
             <div className="flex justify-between items-center">
-              <div>
-                <span className="flex items-center gap-2">
+              <div className="flex-1 mr-3">
+                <span className="flex items-center gap-2 text-sm sm:text-base">
                   <Shield className="w-5 h-5 text-blue-500" />
                   Haptic Feedback
                 </span>
@@ -321,8 +324,8 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
           >
             {/* Game Timer */}
             <div className="flex justify-between items-center">
-              <div>
-                <span className="flex items-center gap-2">
+              <div className="flex-1 mr-3">
+                <span className="flex items-center gap-2 text-sm sm:text-base">
                   <Clock className="w-5 h-5 text-rose-500" />
                   Game Timer
                 </span>
@@ -337,28 +340,28 @@ export const SettingsModal = ({ settings, onSave, onClose }: SettingsModalProps)
         </div>
 
         <motion.div 
-          className="mt-8 flex justify-end space-x-4"
+          className="mt-6 sm:mt-8 flex justify-end space-x-3 sm:space-x-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
           <motion.button
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.03, y: -1 }}
+            whileTap={{ scale: 0.97 }}
             onClick={onClose}
-            className={`px-5 py-2 rounded-lg ${
+            className={`px-4 sm:px-5 py-3 rounded-lg ${
               currentSettings.darkMode ? 
                 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 
                 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            } font-medium shadow-md`}
+            } font-medium shadow-md touch-manipulation`}
           >
             Cancel
           </motion.button>
           <motion.button
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.03, y: -1 }}
+            whileTap={{ scale: 0.97 }}
             onClick={handleSave}
-            className={`px-5 py-2 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 shadow-md`}
+            className={`px-4 sm:px-5 py-3 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 shadow-md touch-manipulation`}
             transition={{
               type: "spring",
               stiffness: 500,
