@@ -13,6 +13,7 @@ interface BoardProps {
   winner: Player | 'draw' | null;
   theme: Theme;
   settings: GameSettings;
+  fadingSymbols?: number[];
 }
 
 // Memoize the board component to prevent unnecessary re-renders
@@ -24,7 +25,8 @@ export const Board = memo(({
   disabled, 
   winner,
   theme,
-  settings
+  settings,
+  fadingSymbols = []
 }: BoardProps) => {
   const xColor = getThemeClasses(theme, 'xColor');
   const oColor = getThemeClasses(theme, 'oColor');
@@ -128,19 +130,47 @@ export const Board = memo(({
             {cell && (
               <motion.div
                 initial={showAnimations ? { scale: 0, rotate: -180 } : { scale: 1 }}
-                animate={{ scale: 1, rotate: 0 }}
+                animate={{ 
+                  scale: 1, 
+                  rotate: 0,
+                  opacity: fadingSymbols.includes(index) ? 0.4 : 1
+                }}
                 transition={{ 
                   type: isLowEndDevice ? "tween" : "spring", 
                   stiffness: isLowEndDevice ? undefined : 300, 
                   damping: isLowEndDevice ? undefined : 20, 
                   duration: getAnimationDuration() 
                 }}
-                className="w-full h-full flex items-center justify-center"
+                className={`w-full h-full flex items-center justify-center ${
+                  fadingSymbols.includes(index) ? 'animate-pulse relative' : ''
+                }`}
               >
+                {fadingSymbols.includes(index) && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute w-full h-full rounded-lg border-2 border-red-500 animate-ping opacity-70"></div>
+                    {showAnimations && (
+                      <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1, opacity: [0.5, 0.7, 0.5] }}
+                        transition={{ 
+                          duration: 1.5, 
+                          repeat: Infinity,
+                          repeatType: 'reverse' 
+                        }}
+                        className="absolute -bottom-6 text-xs font-bold bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-200 px-2 py-0.5 rounded-md"
+                      >
+                        Next to go
+                      </motion.div>
+                    )}
+                  </div>
+                )}
                 {cell === 'X' ? (
                   <motion.div
                     initial={showAnimations ? { pathLength: 0, opacity: 0 } : { pathLength: 1, opacity: 1 }}
-                    animate={{ pathLength: 1, opacity: 1 }}
+                    animate={{ 
+                      pathLength: 1, 
+                      opacity: fadingSymbols.includes(index) ? 0.4 : 1 
+                    }}
                     transition={{ 
                       duration: getAnimationDuration(), 
                       ease: "easeInOut" 
@@ -151,7 +181,10 @@ export const Board = memo(({
                 ) : (
                   <motion.div
                     initial={showAnimations ? { opacity: 0, scale: 0 } : { opacity: 1, scale: 1 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    animate={{ 
+                      opacity: fadingSymbols.includes(index) ? 0.4 : 1, 
+                      scale: 1 
+                    }}
                     transition={{ 
                       duration: getAnimationDuration() * 0.6, 
                       ease: "easeOut" 

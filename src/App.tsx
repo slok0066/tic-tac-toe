@@ -24,7 +24,9 @@ const initialGameState: GameState = {
   winner: null,
   winningLine: null,
   theme: 'blue',
-  showConfetti: false
+  showConfetti: false,
+  moveHistory: [],
+  fadingSymbols: []
 };
 
 const initialSettings: GameSettings = {
@@ -273,6 +275,12 @@ function App() {
     // For online games, only allow moves for the current player
     if (gameMode === 'online' && gameState.currentPlayer !== gameState.playerSymbol) return;
 
+    // Use infinity mode logic for that game mode
+    if (gameMode === 'infinity') {
+      handleInfinityModeClick(index);
+      return;
+    }
+
     const newBoard = [...gameState.board];
     newBoard[index] = gameState.currentPlayer;
     
@@ -310,6 +318,110 @@ function App() {
         board: newBoard
       });
     }
+  };
+
+  // Special handling for infinity mode (each player only has 3 symbols)
+  const handleInfinityModeClick = (index: number) => {
+    if (gameState.board[index] || gameState.winner) return;
+    
+    // Make a copy of the game state to work with
+    const newBoard = [...gameState.board];
+    let newMoveHistory = [...gameState.moveHistory];
+    let newFadingSymbols: number[] = [...gameState.fadingSymbols];
+    
+    // Count existing symbols for current player
+    const playerMoves = newMoveHistory.filter(move => move.player === gameState.currentPlayer);
+    
+    // Check if this player already has 3 symbols (we're placing the 4th)
+    const isPlacingFourthSymbol = playerMoves.length >= 3;
+    
+    // Add the new move to history
+    const newMove = {
+      player: gameState.currentPlayer,
+      position: index,
+      timestamp: Date.now()
+    };
+    newMoveHistory.push(newMove);
+    
+    // Place the symbol
+    newBoard[index] = gameState.currentPlayer;
+
+    // If this player already has 3 symbols before placing the current one (placing 4th),
+    // we'll need to remove their oldest symbol
+    if (isPlacingFourthSymbol) {
+      // Find the oldest move by this player
+      const oldestMove = playerMoves.reduce((oldest, current) => 
+        current.timestamp < oldest.timestamp ? current : oldest, playerMoves[0]);
+      
+      // Remove this symbol from the board
+      newBoard[oldestMove.position] = null;
+      
+      // Remove it from move history
+      const updatedMoveHistory = newMoveHistory.filter(move => 
+        !(move.player === gameState.currentPlayer && move.position === oldestMove.position)
+      );
+      
+      // Clear fading symbols for this player
+      newFadingSymbols = newFadingSymbols.filter(pos => 
+        !playerMoves.some(move => move.position === pos && move.player === gameState.currentPlayer)
+      );
+      
+      // Update the move history
+      newMoveHistory = updatedMoveHistory;
+    } 
+    // If this is the 3rd symbol, mark the oldest for potential removal on next turn
+    else if (playerMoves.length === 2) { // We're placing the 3rd symbol now
+      // Find the oldest move by this player
+      const oldestMove = playerMoves.reduce((oldest, current) => 
+        current.timestamp < oldest.timestamp ? current : oldest, playerMoves[0]);
+      
+      // Mark the oldest move as fading - it will be removed when placing the 4th symbol
+      newFadingSymbols.push(oldestMove.position);
+    }
+
+    // Keep fading symbols for the opponent - they don't change
+    const opponent = gameState.currentPlayer === 'X' ? 'O' : 'X';
+    const opponentMoves = newMoveHistory.filter(move => move.player === opponent);
+    
+    // If opponent has exactly 3 symbols, mark their oldest for potential removal
+    if (opponentMoves.length === 3) {
+      // Only add if not already in fading symbols
+      const oldestOpponentMove = opponentMoves.reduce((oldest, current) => 
+        current.timestamp < oldest.timestamp ? current : oldest, opponentMoves[0]);
+      
+      if (!newFadingSymbols.includes(oldestOpponentMove.position)) {
+        newFadingSymbols.push(oldestOpponentMove.position);
+      }
+    }
+    
+    // Play move sound
+    playMoveSound(gameState.currentPlayer);
+    
+    // Check for winner after the new move
+    const { winner, line } = checkWinner(newBoard);
+    
+    // Play result sound if there's a winner
+    if (winner) {
+      setTimeout(() => {
+        playResultSound(winner === 'draw' ? 'draw' : 'win');
+        console.log(`Playing ${winner === 'draw' ? 'draw' : 'win'} sound`);
+      }, 300);
+    }
+    
+    // Always set showConfetti to false to disable win animation
+    const showConfetti = false;
+    
+    // Update game state with the new move
+    setGameState(prev => ({
+      ...prev,
+      board: newBoard,
+      currentPlayer: prev.currentPlayer === 'X' ? 'O' : 'X',
+      winner,
+      winningLine: line,
+      showConfetti,
+      moveHistory: newMoveHistory,
+      fadingSymbols: newFadingSymbols
+    }));
   };
 
   // AI move logic
@@ -579,7 +691,7 @@ function App() {
                 whileTap={{ scale: settings.showAnimations ? 0.97 : 1 }}
                 transition={{ 
                   duration: settings.animationSpeed === 'slow' ? 0.3 : 
-                            settings.animationSpeed === 'medium' ? 0.2 : 0.1 
+                            settings.animationSpeed === 'medium' ? 0.2 : 0.1
                 }}
                 className={`w-72 p-4 bg-gradient-to-r ${primaryClass} rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-blue-600 hover:to-blue-700 transform transition-all`}
                 onClick={() => handleGameModeSelect('friend')}
@@ -618,6 +730,33 @@ function App() {
               >
                 <Wifi className="w-6 h-6" />
                 <span className="font-semibold text-lg">Create/Join Room</span>
+              </motion.button>
+              <motion.button
+                whileHover={settings.showAnimations && !isLowEndDevice ? 
+                  { scale: 1.03, x: 3, boxShadow: "0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 8px -5px rgba(0, 0, 0, 0.04)" } : 
+                  { scale: 1 }
+                }
+                whileTap={{ scale: settings.showAnimations ? 0.97 : 1 }}
+                transition={{ 
+                  duration: settings.animationSpeed === 'slow' ? 0.3 : 
+                            settings.animationSpeed === 'medium' ? 0.2 : 0.1
+                }}
+                className="w-72 p-4 bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-teal-600 hover:to-teal-700 transform transition-all"
+                onClick={() => handleGameModeSelect('infinity')}
+              >
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  className="w-6 h-6"
+                >
+                  <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z" />
+                </svg>
+                <span className="font-semibold text-lg">Infinity Mode</span>
               </motion.button>
               <motion.button
                 whileHover={settings.showAnimations && !isLowEndDevice ? 
@@ -823,6 +962,7 @@ function App() {
             winner={gameState.winner}
             theme={settings.theme}
             settings={settings}
+            fadingSymbols={gameState.fadingSymbols}
           />
 
           <motion.div 
