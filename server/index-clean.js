@@ -204,23 +204,34 @@ io.on('connection', (socket) => {
           opponentSocket.join(roomCode);
         }
         
-        // Notify both players
-        io.to(roomCode).emit('match_found', {
+        const room = rooms.get(roomCode);
+        
+        // Send different isPlayerX values to each player
+        socket.emit('match_found', {
           roomCode,
-          isPlayerX: false,
-          players: rooms.get(roomCode).players.map(p => ({ id: p.id, symbol: p.symbol })),
-          currentTurn: 'X',
+          isPlayerX: false, // This player is O
+          players: room.players,
+          currentTurn: room.currentTurn
         });
         
-        console.log(`Random match created: ${roomCode}`);
+        if (opponentSocket) {
+          opponentSocket.emit('match_found', {
+            roomCode,
+            isPlayerX: true, // Opponent is X
+            players: room.players,
+            currentTurn: room.currentTurn
+          });
+        }
+        
+        console.log(`Random match created: ${roomCode} - ${opponentId}(X) vs ${socket.id}(O)`);
       } else {
         waitingPlayers.push(socket.id);
         socket.emit('waiting_for_match');
         console.log(`Player ${socket.id} is waiting for a match`);
       }
     } catch (error) {
-      console.error('Error finding match:', error);
-      socket.emit('error', 'Failed to find match');
+      console.error('Error in random match:', error);
+      socket.emit('error', 'Failed to create match');
     }
   });
   

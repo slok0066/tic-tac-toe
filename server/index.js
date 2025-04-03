@@ -211,37 +211,56 @@ io.on('connection', (socket) => {
   
   // Find a random match
   socket.on('find_random_match', () => {
-    if (waitingPlayers.includes(socket.id)) return;
-    
-    if (waitingPlayers.length > 0) {
-      const opponentId = waitingPlayers.shift();
-      const roomCode = nanoid(6).toUpperCase();
+    try {
+      if (waitingPlayers.includes(socket.id)) return;
       
-      rooms.set(roomCode, {
-        players: [
-          { id: opponentId, symbol: 'X' },
-          { id: socket.id, symbol: 'O' }
-        ],
-        currentTurn: 'X',
-        board: Array(9).fill(null),
-      });
-      
-      socket.join(roomCode);
-      io.sockets.sockets.get(opponentId)?.join(roomCode);
-      
-      // Notify both players
-      io.to(roomCode).emit('match_found', {
-        roomCode,
-        isPlayerX: false,
-        players: rooms.get(roomCode).players.map(p => ({ id: p.id, symbol: p.symbol })),
-        currentTurn: 'X',
-      });
-      
-      console.log(`Random match created: ${roomCode}`);
-    } else {
-      waitingPlayers.push(socket.id);
-      socket.emit('waiting_for_match');
-      console.log(`Player ${socket.id} is waiting for a match`);
+      if (waitingPlayers.length > 0) {
+        const opponentId = waitingPlayers.shift();
+        const roomCode = nanoid(6).toUpperCase();
+        
+        rooms.set(roomCode, {
+          players: [
+            { id: opponentId, symbol: 'X' },
+            { id: socket.id, symbol: 'O' }
+          ],
+          currentTurn: 'X',
+          board: Array(9).fill(null),
+        });
+        
+        socket.join(roomCode);
+        const opponentSocket = io.sockets.sockets.get(opponentId);
+        if (opponentSocket) {
+          opponentSocket.join(roomCode);
+        }
+        
+        const room = rooms.get(roomCode);
+        
+        // Send different isPlayerX values to each player
+        socket.emit('match_found', {
+          roomCode,
+          isPlayerX: false, // This player is O
+          players: room.players,
+          currentTurn: room.currentTurn
+        });
+        
+        if (opponentSocket) {
+          opponentSocket.emit('match_found', {
+            roomCode,
+            isPlayerX: true, // Opponent is X
+            players: room.players,
+            currentTurn: room.currentTurn
+          });
+        }
+        
+        console.log(`Random match created: ${roomCode} - ${opponentId}(X) vs ${socket.id}(O)`);
+      } else {
+        waitingPlayers.push(socket.id);
+        socket.emit('waiting_for_match');
+        console.log(`Player ${socket.id} is waiting for a match`);
+      }
+    } catch (error) {
+      console.error('Error in random match:', error);
+      socket.emit('error', 'Failed to create match');
     }
   });
   
