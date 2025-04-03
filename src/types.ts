@@ -1,6 +1,7 @@
 export type Player = 'X' | 'O';
 export type BoardState = (Player | null)[];
 export type GameMode = 'ai' | 'friend' | 'online' | 'random' | 'infinity';
+export type GameType = 'normal' | 'infinity';
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'god';
 export type RoomStatus = 'creating' | 'joining' | 'waiting' | 'playing' | 'ended' | 'searching';
 export type Theme = 'blue' | 'purple' | 'green' | 'pink' | 'orange';
@@ -28,6 +29,8 @@ export interface GameState {
   moveHistory: MoveInfo[];
   // Symbols that are about to be removed (for fading effect)
   fadingSymbols: number[];
+  // Game type - normal or infinity
+  gameType: GameType;
 }
 
 export interface GameSettings {

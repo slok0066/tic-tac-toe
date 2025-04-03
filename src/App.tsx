@@ -7,7 +7,7 @@ import { RoomModal } from './components/RoomModal';
 import { RandomMatchModal } from './components/RandomMatchModal';
 import { SettingsModal } from './components/SettingsModal';
 import { checkWinner, getAIMove } from './utils/gameLogic';
-import { GameState, GameMode, Player, Difficulty, RoomStatus, GameSettings } from './types';
+import { GameState, GameMode, Player, Difficulty, RoomStatus, GameSettings, GameType } from './types';
 import socket from './utils/socket';
 import { getThemeClasses, applyTheme } from './utils/theme';
 import { 
@@ -26,7 +26,8 @@ const initialGameState: GameState = {
   theme: 'blue',
   showConfetti: false,
   moveHistory: [],
-  fadingSymbols: []
+  fadingSymbols: [],
+  gameType: 'normal'
 };
 
 const initialSettings: GameSettings = {
@@ -126,6 +127,8 @@ function App() {
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [showRandomMatchModal, setShowRandomMatchModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showGameTypeModal, setShowGameTypeModal] = useState(false);
+  const [pendingGameMode, setPendingGameMode] = useState<GameMode | null>(null);
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -275,12 +278,13 @@ function App() {
     // For online games, only allow moves for the current player
     if (gameMode === 'online' && gameState.currentPlayer !== gameState.playerSymbol) return;
 
-    // Use infinity mode logic for that game mode
-    if (gameMode === 'infinity') {
+    // Use infinity mode logic for infinity game type
+    if (gameState.gameType === 'infinity') {
       handleInfinityModeClick(index);
       return;
     }
 
+    // Normal game logic
     const newBoard = [...gameState.board];
     newBoard[index] = gameState.currentPlayer;
     
@@ -440,7 +444,31 @@ function App() {
     }
   }, [gameState.currentPlayer, gameMode, gameState.board, gameState.difficulty, gameState.winner]);
 
-  const resetGame = () => {
+  const handleGameTypeSelect = (gameType: GameType) => {
+    playClickSound();
+    
+    // Start timer for new game
+    if (settings.showTimer) {
+      setGameStartTime(new Date());
+    }
+    
+    // Now that we have both game mode and type, proceed with initialization
+    if (pendingGameMode === 'ai') {
+      setShowDifficultyModal(true);
+    } else if (pendingGameMode === 'online') {
+      setShowRoomModal(true);
+    } else if (pendingGameMode === 'random') {
+      setShowRandomMatchModal(true);
+    } else {
+      // For friend mode, just start the game
+      setGameMode(pendingGameMode);
+      resetGame(gameType);
+    }
+    
+    setShowGameTypeModal(false);
+  };
+
+  const resetGame = (gameType = gameState.gameType) => {
     playClickSound();
     
     // Reset timer if needed
@@ -448,13 +476,14 @@ function App() {
       setGameStartTime(new Date());
     }
     
-    setGameState(prev => ({ 
-      ...initialGameState, 
+    setGameState(prev => ({
+      ...initialGameState,
       difficulty: prev.difficulty,
       roomCode: prev.roomCode,
       playerSymbol: prev.playerSymbol,
       roomStatus: prev.roomStatus,
-      theme: settings.theme
+      theme: settings.theme,
+      gameType: gameType
     }));
   };
 
@@ -463,34 +492,25 @@ function App() {
     initializeAudio();
     playClickSound();
     
-    // Start timer for new game
-    if (settings.showTimer) {
-      setGameStartTime(new Date());
-    }
+    // First show the game type modal
+    setPendingGameMode(mode);
+    setShowGameTypeModal(true);
     
-    if (mode === 'ai') {
-      setShowDifficultyModal(true);
-    } else if (mode === 'online') {
-      setShowRoomModal(true);
-    } else if (mode === 'random') {
-      setShowRandomMatchModal(true);
-    } else {
-      setGameMode(mode);
-      resetGame();
-    }
+    // The rest of the flow will happen after the user selects a game type
   };
 
   const handleDifficultySelect = (difficulty: Difficulty) => {
     playClickSound();
-    setGameMode('ai');
+    setGameMode(pendingGameMode);
     setGameState(prev => ({ ...prev, difficulty, theme: settings.theme }));
     setShowDifficultyModal(false);
+    setPendingGameMode(null);
   };
 
   const handleCreateRoom = (roomCode: string) => {
     playClickSound();
     socket.emit('create_room', { roomCode });
-    setGameMode('online');
+    setGameMode(pendingGameMode);
     setGameState(prev => ({
       ...prev,
       roomCode: roomCode,
@@ -499,12 +519,13 @@ function App() {
       theme: settings.theme
     }));
     setShowRoomModal(false);
+    setPendingGameMode(null);
   };
 
   const handleJoinRoom = (roomCode: string) => {
     playClickSound();
     socket.emit('join_room', { roomCode });
-    setGameMode('online');
+    setGameMode(pendingGameMode);
     setGameState(prev => ({
       ...prev,
       roomCode: roomCode,
@@ -513,11 +534,12 @@ function App() {
       theme: settings.theme
     }));
     setShowRoomModal(false);
+    setPendingGameMode(null);
   };
 
   const handleRandomMatch = (roomCode: string, isPlayerX: boolean) => {
     playClickSound();
-    setGameMode('online');
+    setGameMode(pendingGameMode);
     setGameState(prev => ({
       ...prev,
       roomCode: roomCode,
@@ -526,6 +548,7 @@ function App() {
       theme: settings.theme
     }));
     setShowRandomMatchModal(false);
+    setPendingGameMode(null);
   };
 
   const handleSaveSettings = (newSettings: GameSettings) => {
@@ -781,20 +804,29 @@ function App() {
             {showDifficultyModal && (
               <DifficultyModal
                 onSelect={handleDifficultySelect}
-                onClose={() => setShowDifficultyModal(false)}
+                onClose={() => {
+                  setShowDifficultyModal(false);
+                  setPendingGameMode(null);
+                }}
               />
             )}
             {showRoomModal && (
               <RoomModal
                 onCreateRoom={handleCreateRoom}
                 onJoinRoom={handleJoinRoom}
-                onClose={() => setShowRoomModal(false)}
+                onClose={() => {
+                  setShowRoomModal(false);
+                  setPendingGameMode(null);
+                }}
               />
             )}
             {showRandomMatchModal && (
               <RandomMatchModal
                 onMatchFound={handleRandomMatch}
-                onClose={() => setShowRandomMatchModal(false)}
+                onClose={() => {
+                  setShowRandomMatchModal(false);
+                  setPendingGameMode(null);
+                }}
               />
             )}
             {showSettingsModal && (
@@ -802,6 +834,16 @@ function App() {
                 settings={settings}
                 onSave={handleSaveSettings}
                 onClose={() => setShowSettingsModal(false)}
+              />
+            )}
+            {showGameTypeModal && (
+              <GameTypeModal
+                onSelect={handleGameTypeSelect}
+                onClose={() => {
+                  setShowGameTypeModal(false);
+                  setPendingGameMode(null);
+                }}
+                darkMode={settings.darkMode}
               />
             )}
           </AnimatePresence>
@@ -914,6 +956,7 @@ function App() {
                 transition={{ delay: 0.2 }}
               >
                 AI Difficulty: <span className={`font-semibold ${gameState.difficulty === 'god' ? 'text-red-500' : ''}`}>{gameState.difficulty}</span>
+                {gameState.gameType === 'infinity' && <span className="ml-3 px-2 py-0.5 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 rounded-full text-xs font-medium">Infinity</span>}
               </motion.p>
             )}
             {gameMode === 'online' && gameState.roomCode && (
@@ -925,6 +968,17 @@ function App() {
               >
                 Room: <span className="font-mono font-semibold">{gameState.roomCode}</span>
                 {gameState.playerSymbol && <span className="ml-2">(You: {gameState.playerSymbol})</span>}
+                {gameState.gameType === 'infinity' && <span className="ml-3 px-2 py-0.5 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 rounded-full text-xs font-medium">Infinity</span>}
+              </motion.p>
+            )}
+            {gameMode === 'friend' && gameState.gameType === 'infinity' && (
+              <motion.p 
+                className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <span className="px-2 py-0.5 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 rounded-full text-xs font-medium">Infinity Mode</span>
               </motion.p>
             )}
             <motion.p 
@@ -975,7 +1029,7 @@ function App() {
               whileHover={{ scale: settings.showAnimations ? 1.05 : 1, y: -2 }}
               whileTap={{ scale: settings.showAnimations ? 0.95 : 1, y: 0 }}
               className={`px-6 py-2 bg-gradient-to-r ${primaryClass} rounded-lg text-white hover:from-blue-600 hover:to-blue-700 font-semibold shadow-md`}
-              onClick={resetGame}
+              onClick={() => resetGame()}
             >
               New Game
             </motion.button>
@@ -995,5 +1049,84 @@ function App() {
     </ErrorBoundary>
   );
 }
+
+// Game Type Selection Modal
+const GameTypeModal = ({ 
+  onSelect, 
+  onClose,
+  darkMode = false
+}: { 
+  onSelect: (type: GameType) => void; 
+  onClose: () => void;
+  darkMode?: boolean;
+}) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} rounded-2xl p-6 shadow-xl max-w-sm w-full`}
+      >
+        <h2 className={`text-2xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+          Select Game Type
+        </h2>
+
+        <div className="space-y-4">
+          <motion.button
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => onSelect('normal')}
+            className={`w-full p-4 ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} text-white rounded-xl flex items-center justify-between`}
+          >
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">🎮</span>
+              <div className="text-left">
+                <div className="font-semibold">Normal Mode</div>
+                <div className="text-xs text-blue-100">Classic Tic Tac Toe</div>
+              </div>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => onSelect('infinity')}
+            className={`w-full p-4 ${darkMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-teal-500 hover:bg-teal-600'} text-white rounded-xl flex items-center justify-between`}
+          >
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">♾️</span>
+              <div className="text-left">
+                <div className="font-semibold">Infinity Mode</div>
+                <div className="text-xs text-teal-100">3 symbols per player max</div>
+              </div>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </motion.button>
+        </div>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={onClose}
+          className={`mt-6 px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} font-medium text-center w-full`}
+        >
+          Cancel
+        </motion.button>
+      </motion.div>
+    </motion.div>
+  );
+};
 
 export default App;
