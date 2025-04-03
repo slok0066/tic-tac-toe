@@ -13,7 +13,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? '*'  // Allow all origins in production to fix CORS issues
+      ? ['https://your-frontend-domain.com', 'https://www.your-frontend-domain.com'] // Replace with your frontend URLs
       : ["http://localhost:5173", "http://127.0.0.1:5173"],
     methods: ["GET", "POST"],
     credentials: true
@@ -37,6 +37,34 @@ if (process.env.NODE_ENV === 'production') {
 // Root route for health checks
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', serverTime: new Date().toISOString() });
+});
+
+// Serve a simple HTML page for the root route
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Tic Tac Toe Server</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+          h1 { color: #333; }
+          .container { max-width: 600px; margin: 0 auto; }
+          .status { padding: 20px; background: #f5f5f5; border-radius: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Tic Tac Toe Server</h1>
+          <div class="status">
+            <p>Socket.IO server is running!</p>
+            <p>Server time: ${new Date().toISOString()}</p>
+          </div>
+          <p>This is the WebSocket server for the Tic Tac Toe game. Connect to this server from your game client.</p>
+        </div>
+      </body>
+    </html>
+  `);
 });
 
 // Test route for client connectivity
