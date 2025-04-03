@@ -78,18 +78,26 @@ io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
   
   // Create a new room
-  socket.on('create_room', (data) => {
-    const roomCode = data.roomCode || nanoid(6).toUpperCase();
-    
-    rooms.set(roomCode, {
-      players: [{ id: socket.id, symbol: 'X' }],
-      currentTurn: 'X',
-      board: Array(9).fill(null),
-    });
-    
-    socket.join(roomCode);
-    socket.emit('room_created', { roomCode });
-    console.log(`Room created: ${roomCode}`);
+  socket.on('create_room', (data = {}) => {
+    try {
+      // Generate a room code if one wasn't provided
+      const roomCode = data?.roomCode || nanoid(6).toUpperCase();
+      console.log(`Creating room with code: ${roomCode}`);
+      
+      rooms.set(roomCode, {
+        players: [{ id: socket.id, symbol: 'X' }],
+        currentTurn: 'X',
+        board: Array(9).fill(null),
+      });
+      
+      socket.join(roomCode);
+      // Important: Send back the room code to the client
+      socket.emit('room_created', { roomCode });
+      console.log(`Room created: ${roomCode}`);
+    } catch (error) {
+      console.error('Error creating room:', error);
+      socket.emit('error', 'Failed to create room');
+    }
   });
   
   // Join an existing room

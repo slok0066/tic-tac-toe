@@ -19,12 +19,15 @@ export const RoomModal = ({ onCreateRoom, onJoinRoom, onClose }: RoomModalProps)
 
   const handleCreateRoom = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const code = await createRoom();
+      console.log('Created room with code:', code);
       setCreatedRoomCode(code);
       setMode('create');
       onCreateRoom(code);
     } catch (err) {
+      console.error('Room creation error:', err);
       setError('Failed to create room. Please try again.');
     } finally {
       setIsLoading(false);

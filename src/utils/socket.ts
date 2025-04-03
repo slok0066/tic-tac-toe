@@ -129,11 +129,12 @@ const socketInstance = globalThis.socket as Socket<ServerToClientEvents, ClientT
 export default socketInstance;
 
 // Helper functions using the socket instance
-export const createRoom = (roomCode: string): Promise<string> => {
+export const createRoom = (roomCode: string = ''): Promise<string> => {
   socketInstance.emit('create_room', { roomCode });
   return new Promise<string>((resolve) => {
-    socketInstance.once('room_created', () => {
-      resolve(roomCode);
+    socketInstance.once('room_created', (data) => {
+      console.log('Room created with code:', data.roomCode);
+      resolve(data.roomCode);
     });
   });
 };

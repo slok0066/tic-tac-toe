@@ -154,7 +154,7 @@ export const DifficultyModal = ({ onSelect, onClose }: DifficultyModalProps) => 
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 + index * 0.1 }}
                 >
-                  <motion.button
+            <motion.button
                     whileHover={{ scale: 1.15, y: -5 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => {
@@ -202,7 +202,7 @@ export const DifficultyModal = ({ onSelect, onClose }: DifficultyModalProps) => 
                 })()}
               </div>
               <h3 className="font-bold text-xl">{difficulties.find(d => d.value === selectedDifficulty)?.label}</h3>
-            </div>
+              </div>
             <p className="text-gray-600 pl-12 text-md">{difficulties.find(d => d.value === selectedDifficulty)?.description}</p>
           </motion.div>
         </div>
