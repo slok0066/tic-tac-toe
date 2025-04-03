@@ -111,6 +111,11 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode, fallbac
   }
 }
 
+// Check if we're likely on a low-end device
+const isLowEndDevice = window.navigator.hardwareConcurrency 
+  ? window.navigator.hardwareConcurrency <= 4
+  : true; // Assume low-end if we can't detect
+
 function App() {
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
   const [gameState, setGameState] = useState<GameState>(initialGameState);
@@ -121,6 +126,9 @@ function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Reduce the number of background elements for low-end devices
+  const bgElementCount = isLowEndDevice ? 2 : 5;
 
   // Initialize socket connection and audio when app loads
   useEffect(() => {
@@ -475,189 +483,191 @@ function App() {
 
   if (!gameMode) {
     return (
-      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4 relative overflow-hidden`}>
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          {Array.from({ length: 15 }).map((_, i) => (
-            <motion.div
-              key={i}
-              className={`absolute rounded-full ${
-                i % 2 === 0 ? 
-                  (settings.darkMode ? 'bg-gray-700' : 'bg-white') : 
-                  (settings.darkMode ? 'bg-gray-600' : `bg-${settings.theme}-200`)
-              } opacity-20`}
-              initial={{
-                x: `${Math.random() * 100}vw`,
-                y: `${Math.random() * 100}vh`,
-                scale: Math.random() * 0.5 + 0.5,
-              }}
-              animate={{
-                y: [`${Math.random() * 100}vh`, `${Math.random() * 100}vh`],
-                x: [`${Math.random() * 100}vw`, `${Math.random() * 100}vw`],
-              }}
-              transition={{
-                duration: Math.random() * 20 + 10,
-                repeat: Infinity,
-                repeatType: "reverse",
-              }}
-              style={{
-                width: `${Math.random() * 100 + 50}px`,
-                height: `${Math.random() * 100 + 50}px`,
-                filter: 'blur(8px)',
-              }}
-            />
-          ))}
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`text-center relative z-10 ${
-            settings.darkMode ? 
-              'backdrop-blur-lg bg-gray-800/50 border-gray-700/30' : 
-              'backdrop-blur-lg bg-white/20 border-white/30'
-          } p-10 rounded-3xl shadow-2xl border`}
-          transition={{ 
-            duration: settings.animationSpeed === 'slow' ? 0.7 : 
-                      settings.animationSpeed === 'medium' ? 0.5 : 0.3 
-          }}
-          {...(settings.showAnimations && {
-            animate: { 
-              opacity: 1, 
-              y: [0, -10, 0], 
-              transition: {
-                y: {
+      <ErrorBoundary
+        fallback={
+          <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+            <div className="bg-white/10 backdrop-blur-md p-8 rounded-xl shadow-xl max-w-md w-full">
+              <h1 className="text-2xl font-bold mb-4">Oops! Something went wrong</h1>
+              <p className="mb-6">We encountered an error while loading the game. Please try the following:</p>
+              <ul className="list-disc pl-5 mb-6">
+                <li className="mb-2">Refresh the page</li>
+                <li className="mb-2">Clear your browser cache</li>
+                <li className="mb-2">Try a different browser</li>
+                <li>If the problem persists, please try again later</li>
+              </ul>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Refresh Page
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4 relative overflow-hidden`}>
+          {/* Subtle animated background for the game board - reduced for mobile */}
+          <div className="absolute inset-0 overflow-hidden">
+            {Array.from({ length: bgElementCount }).map((_, i) => (
+              <motion.div
+                key={i}
+                className={`absolute rounded-full ${settings.darkMode ? 'bg-gray-600' : 'bg-white'} opacity-10`}
+                initial={{
+                  x: `${Math.random() * 100}vw`,
+                  y: `${Math.random() * 100}vh`,
+                  scale: Math.random() * 0.5 + 0.5,
+                }}
+                animate={settings.showAnimations && !isLowEndDevice ? {
+                  y: [`${Math.random() * 100}vh`, `${Math.random() * 100}vh`],
+                  x: [`${Math.random() * 100}vw`, `${Math.random() * 100}vw`],
+                } : {}}
+                transition={{
+                  duration: Math.random() * 20 + 10,
                   repeat: Infinity,
-                  duration: settings.animationSpeed === 'slow' ? 4 : 
-                            settings.animationSpeed === 'medium' ? 3 : 2,
-                  ease: "easeInOut"
-                }
-              }
-            }
-          })}
-        >
-          <div className="absolute top-4 right-4 flex space-x-3">
-            {/* Settings Button */}
-            <SettingsButton 
-              onClick={() => setShowSettingsModal(true)} 
-              className={`${settings.darkMode ? 'bg-gray-700/80 text-gray-200 hover:bg-gray-600 hover:text-white' : 'bg-white/80 text-gray-700 hover:bg-white hover:text-gray-900'} shadow-lg`}
-            />
+                  repeatType: "reverse",
+                }}
+                style={{
+                  width: `${Math.random() * 100 + 50}px`,
+                  height: `${Math.random() * 100 + 50}px`,
+                  filter: 'blur(8px)',
+                }}
+              />
+            ))}
           </div>
           
-          <motion.h1 
-            className={`text-6xl font-bold mb-10 ${
-              settings.darkMode ? 
-                'text-white' : 
-                `bg-gradient-to-r ${gradientClass} text-transparent bg-clip-text`
-            }`}
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
+          <motion.div
+            initial={{ opacity: 0, y: isLowEndDevice ? 10 : 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`${contentBgClass} backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/50 relative`}
             transition={{ 
-              type: "spring", 
-              stiffness: settings.animationSpeed === 'slow' ? 200 : 
-                         settings.animationSpeed === 'medium' ? 300 : 400, 
-              damping: 20 
+              duration: settings.animationSpeed === 'slow' ? 0.7 : 
+                        settings.animationSpeed === 'medium' ? 0.5 : 0.3 
             }}
           >
-            Tic Tac Toe
-          </motion.h1>
-          <div className="space-y-5">
-            <motion.button
-              whileHover={settings.showAnimations ? 
-                { scale: 1.05, x: 5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" } : 
-                { scale: 1 }
-              }
-              whileTap={{ scale: settings.showAnimations ? 0.95 : 1 }}
+            <div className="absolute top-4 right-4">
+              <SettingsButton 
+                onClick={() => setShowSettingsModal(true)} 
+                className={`${settings.darkMode ? 'bg-gray-700/80 text-gray-200 hover:bg-gray-600 hover:text-white' : 'bg-white/80 text-gray-700 hover:bg-white hover:text-gray-900'} shadow-lg`}
+              />
+            </div>
+            
+            <motion.h1 
+              className={`text-4xl sm:text-5xl font-bold mb-8 ${
+                settings.darkMode ? 
+                  'text-white' : 
+                  `bg-gradient-to-r ${gradientClass} text-transparent bg-clip-text`
+              }`}
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
               transition={{ 
-                duration: settings.animationSpeed === 'slow' ? 0.3 : 
-                           settings.animationSpeed === 'medium' ? 0.2 : 0.1 
+                type: isLowEndDevice ? "tween" : "spring", 
+                stiffness: settings.animationSpeed === 'slow' ? 200 : 
+                          settings.animationSpeed === 'medium' ? 300 : 400, 
+                damping: 20,
+                duration: isLowEndDevice ? 0.3 : undefined
               }}
-              className={`w-72 p-4 bg-gradient-to-r ${primaryClass} rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-blue-600 hover:to-blue-700 transform transition-all`}
-              onClick={() => handleGameModeSelect('friend')}
             >
-              <Users className="w-6 h-6" />
-              <span className="font-semibold text-lg">Play with Friend</span>
-            </motion.button>
-            <motion.button
-              whileHover={settings.showAnimations ? 
-                { scale: 1.05, x: 5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" } : 
-                { scale: 1 }
-              }
-              whileTap={{ scale: settings.showAnimations ? 0.95 : 1 }}
-              transition={{ 
-                duration: settings.animationSpeed === 'slow' ? 0.3 : 
-                           settings.animationSpeed === 'medium' ? 0.2 : 0.1
-              }}
-              className={`w-72 p-4 bg-gradient-to-r ${secondaryClass} rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-purple-600 hover:to-purple-700 transform transition-all`}
-              onClick={() => handleGameModeSelect('ai')}
-            >
-              <Gamepad2 className="w-6 h-6" />
-              <span className="font-semibold text-lg">Play with AI</span>
-            </motion.button>
-            <motion.button
-              whileHover={settings.showAnimations ? 
-                { scale: 1.05, x: 5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" } : 
-                { scale: 1 }
-              }
-              whileTap={{ scale: settings.showAnimations ? 0.95 : 1 }}
-              transition={{ 
-                duration: settings.animationSpeed === 'slow' ? 0.3 : 
-                           settings.animationSpeed === 'medium' ? 0.2 : 0.1
-              }}
-              className="w-72 p-4 bg-gradient-to-r from-pink-500 to-pink-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-pink-600 hover:to-pink-700 transform transition-all"
-              onClick={() => handleGameModeSelect('online')}
-            >
-              <Wifi className="w-6 h-6" />
-              <span className="font-semibold text-lg">Create/Join Room</span>
-            </motion.button>
-            <motion.button
-              whileHover={settings.showAnimations ? 
-                { scale: 1.05, x: 5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" } : 
-                { scale: 1 }
-              }
-              whileTap={{ scale: settings.showAnimations ? 0.95 : 1 }}
-              transition={{ 
-                duration: settings.animationSpeed === 'slow' ? 0.3 : 
-                           settings.animationSpeed === 'medium' ? 0.2 : 0.1
-              }}
-              className="w-72 p-4 bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-green-600 hover:to-green-700 transform transition-all"
-              onClick={() => handleGameModeSelect('random')}
-            >
-              <Globe className="w-6 h-6" />
-              <span className="font-semibold text-lg">Random Match</span>
-            </motion.button>
-          </div>
-        </motion.div>
+              Tic Tac Toe
+            </motion.h1>
+            
+            <div className="space-y-4">
+              <motion.button
+                whileHover={settings.showAnimations && !isLowEndDevice ? 
+                  { scale: 1.03, x: 3, boxShadow: "0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 8px -5px rgba(0, 0, 0, 0.04)" } : 
+                  { scale: 1 }
+                }
+                whileTap={{ scale: settings.showAnimations ? 0.97 : 1 }}
+                transition={{ 
+                  duration: settings.animationSpeed === 'slow' ? 0.3 : 
+                            settings.animationSpeed === 'medium' ? 0.2 : 0.1 
+                }}
+                className={`w-72 p-4 bg-gradient-to-r ${primaryClass} rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-blue-600 hover:to-blue-700 transform transition-all`}
+                onClick={() => handleGameModeSelect('friend')}
+              >
+                <Users className="w-6 h-6" />
+                <span className="font-semibold text-lg">Play with Friend</span>
+              </motion.button>
+              <motion.button
+                whileHover={settings.showAnimations && !isLowEndDevice ? 
+                  { scale: 1.03, x: 3, boxShadow: "0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 8px -5px rgba(0, 0, 0, 0.04)" } : 
+                  { scale: 1 }
+                }
+                whileTap={{ scale: settings.showAnimations ? 0.97 : 1 }}
+                transition={{ 
+                  duration: settings.animationSpeed === 'slow' ? 0.3 : 
+                            settings.animationSpeed === 'medium' ? 0.2 : 0.1
+                }}
+                className={`w-72 p-4 bg-gradient-to-r ${secondaryClass} rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-purple-600 hover:to-purple-700 transform transition-all`}
+                onClick={() => handleGameModeSelect('ai')}
+              >
+                <Gamepad2 className="w-6 h-6" />
+                <span className="font-semibold text-lg">Play with AI</span>
+              </motion.button>
+              <motion.button
+                whileHover={settings.showAnimations && !isLowEndDevice ? 
+                  { scale: 1.03, x: 3, boxShadow: "0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 8px -5px rgba(0, 0, 0, 0.04)" } : 
+                  { scale: 1 }
+                }
+                whileTap={{ scale: settings.showAnimations ? 0.97 : 1 }}
+                transition={{ 
+                  duration: settings.animationSpeed === 'slow' ? 0.3 : 
+                            settings.animationSpeed === 'medium' ? 0.2 : 0.1
+                }}
+                className="w-72 p-4 bg-gradient-to-r from-pink-500 to-pink-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-pink-600 hover:to-pink-700 transform transition-all"
+                onClick={() => handleGameModeSelect('online')}
+              >
+                <Wifi className="w-6 h-6" />
+                <span className="font-semibold text-lg">Create/Join Room</span>
+              </motion.button>
+              <motion.button
+                whileHover={settings.showAnimations && !isLowEndDevice ? 
+                  { scale: 1.03, x: 3, boxShadow: "0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 8px -5px rgba(0, 0, 0, 0.04)" } : 
+                  { scale: 1 }
+                }
+                whileTap={{ scale: settings.showAnimations ? 0.97 : 1 }}
+                transition={{ 
+                  duration: settings.animationSpeed === 'slow' ? 0.3 : 
+                            settings.animationSpeed === 'medium' ? 0.2 : 0.1
+                }}
+                className="w-72 p-4 bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-green-600 hover:to-green-700 transform transition-all"
+                onClick={() => handleGameModeSelect('random')}
+              >
+                <Globe className="w-6 h-6" />
+                <span className="font-semibold text-lg">Random Match</span>
+              </motion.button>
+            </div>
+          </motion.div>
 
-        <AnimatePresence>
-          {showDifficultyModal && (
-            <DifficultyModal
-              onSelect={handleDifficultySelect}
-              onClose={() => setShowDifficultyModal(false)}
-            />
-          )}
-          {showRoomModal && (
-            <RoomModal
-              onCreateRoom={handleCreateRoom}
-              onJoinRoom={handleJoinRoom}
-              onClose={() => setShowRoomModal(false)}
-            />
-          )}
-          {showRandomMatchModal && (
-            <RandomMatchModal
-              onMatchFound={handleRandomMatch}
-              onClose={() => setShowRandomMatchModal(false)}
-            />
-          )}
-          {showSettingsModal && (
-            <SettingsModal
-              settings={settings}
-              onSave={handleSaveSettings}
-              onClose={() => setShowSettingsModal(false)}
-            />
-          )}
-        </AnimatePresence>
-      </div>
+          <AnimatePresence>
+            {showDifficultyModal && (
+              <DifficultyModal
+                onSelect={handleDifficultySelect}
+                onClose={() => setShowDifficultyModal(false)}
+              />
+            )}
+            {showRoomModal && (
+              <RoomModal
+                onCreateRoom={handleCreateRoom}
+                onJoinRoom={handleJoinRoom}
+                onClose={() => setShowRoomModal(false)}
+              />
+            )}
+            {showRandomMatchModal && (
+              <RandomMatchModal
+                onMatchFound={handleRandomMatch}
+                onClose={() => setShowRandomMatchModal(false)}
+              />
+            )}
+            {showSettingsModal && (
+              <SettingsModal
+                settings={settings}
+                onSave={handleSaveSettings}
+                onClose={() => setShowSettingsModal(false)}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+      </ErrorBoundary>
     );
   }
 

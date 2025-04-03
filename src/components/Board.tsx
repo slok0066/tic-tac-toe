@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Circle, X } from 'lucide-react';
 import { BoardState, Player, Theme, GameSettings } from '../types';
@@ -14,7 +15,8 @@ interface BoardProps {
   settings: GameSettings;
 }
 
-export const Board = ({ 
+// Memoize the board component to prevent unnecessary re-renders
+export const Board = memo(({ 
   board, 
   onCellClick, 
   currentPlayer, 
@@ -28,12 +30,19 @@ export const Board = ({
   const oColor = getThemeClasses(theme, 'oColor');
   const boardBg = settings.darkMode ? 'bg-gray-700' : getThemeClasses(theme, 'boardBg');
   
-  // Animation settings
-  const showAnimations = settings.showAnimations;
-  const showHints = settings.showHints;
+  // Check if we're likely on a low-end device
+  const isLowEndDevice = window.navigator.hardwareConcurrency 
+    ? window.navigator.hardwareConcurrency <= 4
+    : true; // Assume low-end if we can't detect
+
+  // Animation settings - automatically disable on low-end devices
+  const showAnimations = settings.showAnimations && !isLowEndDevice;
+  const showHints = settings.showHints && !isLowEndDevice;
   
   // Animation speed based on settings
   const getAnimationDuration = () => {
+    if (isLowEndDevice) return 0.2; // Always fast on low-end devices
+    
     switch (settings.animationSpeed) {
       case 'slow': return 0.8;
       case 'fast': return 0.3;
@@ -82,11 +91,11 @@ export const Board = ({
     <div className="relative perspective-1000">
       <motion.div 
         className={`grid grid-cols-3 gap-3 p-4 rounded-xl ${boardBg} shadow-xl transform-style-3d`}
-        initial={{ rotateX: showAnimations ? 25 : 0 }}
+        initial={{ rotateX: showAnimations ? 15 : 0 }}
         animate={{ rotateX: 0 }}
         transition={{ 
           duration: getAnimationDuration(), 
-          type: "spring", 
+          type: isLowEndDevice ? "tween" : "spring", 
           damping: 20 
         }}
       >
@@ -100,17 +109,17 @@ export const Board = ({
             onClick={() => onCellClick(index)}
             disabled={cell !== null || disabled}
             whileHover={cell === null && !disabled && showAnimations ? { 
-              scale: 1.05, 
+              scale: 1.03, 
               boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-              y: -4 
+              y: -2 
             } : {}}
             whileTap={cell === null && !disabled && showAnimations ? { 
-              scale: 0.95, 
+              scale: 0.97, 
               y: 0 
             } : {}}
             layout
             transition={{ 
-              type: "spring", 
+              type: isLowEndDevice ? "tween" : "spring", 
               stiffness: settings.animationSpeed === 'fast' ? 600 : 
                          settings.animationSpeed === 'medium' ? 500 : 400, 
               damping: 30 
@@ -121,9 +130,9 @@ export const Board = ({
                 initial={showAnimations ? { scale: 0, rotate: -180 } : { scale: 1 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ 
-                  type: "spring", 
-                  stiffness: 300, 
-                  damping: 20, 
+                  type: isLowEndDevice ? "tween" : "spring", 
+                  stiffness: isLowEndDevice ? undefined : 300, 
+                  damping: isLowEndDevice ? undefined : 20, 
                   duration: getAnimationDuration() 
                 }}
                 className="w-full h-full flex items-center justify-center"
@@ -153,7 +162,7 @@ export const Board = ({
                 )}
               </motion.div>
             )}
-            {!cell && !disabled && showHints && (
+            {!cell && !disabled && showHints && !isLowEndDevice && (
               <motion.div
                 className="opacity-0 hover:opacity-40"
                 initial={false}
@@ -182,18 +191,18 @@ export const Board = ({
       
       {winner && (
         <motion.div
-          initial={showAnimations ? { scale: 0, opacity: 0 } : { scale: 1, opacity: 1 }}
+          initial={showAnimations ? { scale: 0.9, opacity: 0 } : { scale: 1, opacity: 1 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: getAnimationDuration() }}
           className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm rounded-xl z-10"
         >
           <motion.div
-            initial={showAnimations ? { y: -20, opacity: 0 } : { y: 0, opacity: 1 }}
+            initial={showAnimations ? { y: -10, opacity: 0 } : { y: 0, opacity: 1 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ 
-              type: "spring", 
-              stiffness: 300, 
-              damping: 20, 
+              type: isLowEndDevice ? "tween" : "spring", 
+              stiffness: isLowEndDevice ? undefined : 300, 
+              damping: isLowEndDevice ? undefined : 20, 
               duration: getAnimationDuration() 
             }}
             className={`${resultBoxClass} px-8 py-6 rounded-xl shadow-lg`}
@@ -202,7 +211,7 @@ export const Board = ({
               className={`text-3xl font-bold ${
                 settings.darkMode ? 'text-white' : `bg-gradient-to-r ${getThemeClasses(theme, 'gradient')} text-transparent bg-clip-text`
               }`}
-              animate={showAnimations ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+              animate={showAnimations && !isLowEndDevice ? { scale: [1, 1.05, 1] } : { scale: 1 }}
               transition={{ 
                 duration: settings.animationSpeed === 'slow' ? 2 : 
                            settings.animationSpeed === 'medium' ? 1.5 : 1, 
@@ -241,7 +250,7 @@ export const Board = ({
                   initial={{ pathLength: 0, opacity: 0 }}
                   animate={{ pathLength: 1, opacity: 0.8 }}
                   transition={{ 
-                    duration: getAnimationDuration() * 1.6, 
+                    duration: getAnimationDuration() * 1.3, 
                     ease: "easeOut" 
                   }}
                 />
@@ -252,4 +261,4 @@ export const Board = ({
       )}
     </div>
   );
-};
+});
