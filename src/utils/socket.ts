@@ -83,12 +83,18 @@ const initializeSocket = (): Socket<ServerToClientEvents, ClientToServerEvents> 
     console.log("Initializing socket connection...");
     const serverUrl = getServerUrl();
     
-    // Try to connect to the socket server with retry options
+    // Optimized socket settings for better mobile performance
     socket = io(serverUrl, {
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 10000,
-      transports: ["websocket", "polling"]
+      reconnectionDelay: 500,
+      timeout: 8000,
+      transports: ["websocket"], // Prioritize websocket only for better performance
+      forceNew: false,
+      multiplex: true,
+      upgrade: true,
+      rememberUpgrade: true,
+      pingInterval: 5000, // More frequent pings on mobile
+      pingTimeout: 8000
     });
     
     // Log connection events

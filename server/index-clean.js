@@ -12,10 +12,18 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow all origins
+    origin: process.env.NODE_ENV === 'production' 
+      ? '*' // Allow all origins in production for easier testing
+      : ["http://localhost:5173", "http://127.0.0.1:5173"],
     methods: ["GET", "POST"],
     credentials: true
-  }
+  },
+  // Optimize Socket.IO for mobile performance
+  pingInterval: 5000,
+  pingTimeout: 8000,
+  transports: ["websocket"],
+  maxHttpBufferSize: 1e6, // 1MB
+  httpCompression: true
 });
 
 const PORT = process.env.PORT || 3001;
@@ -33,6 +41,9 @@ app.get('/api/test', (req, res) => {
 // Game state
 const rooms = new Map();
 const waitingPlayers = [];
+
+// Optimize memory usage by indexing players by socket ID
+const playerToRoom = new Map();
 
 // Helper function to leave a room
 const leaveRoom = (socket, roomCode) => {
@@ -77,6 +88,9 @@ io.on('connection', (socket) => {
       });
       
       socket.join(roomCode);
+      // Track which room this player is in for faster lookups
+      playerToRoom.set(socket.id, roomCode);
+      
       // Important: Send back the room code to the client
       socket.emit('room_created', { roomCode });
       console.log(`Room created: ${roomCode}`);
@@ -111,6 +125,8 @@ io.on('connection', (socket) => {
       // Add the player to the room
       room.players.push({ id: socket.id, symbol: 'O' });
       socket.join(roomCode);
+      // Track this player's room
+      playerToRoom.set(socket.id, roomCode);
       
       // Notify both players that the game is starting
       io.to(roomCode).emit('game_start', {
@@ -204,6 +220,10 @@ io.on('connection', (socket) => {
           opponentSocket.join(roomCode);
         }
         
+        // Track both players' room
+        playerToRoom.set(socket.id, roomCode);
+        playerToRoom.set(opponentId, roomCode);
+        
         const room = rooms.get(roomCode);
         
         // Send different isPlayerX values to each player
@@ -274,11 +294,11 @@ io.on('connection', (socket) => {
         waitingPlayers.splice(index, 1);
       }
       
-      // Handle leaving all rooms this socket is in
-      for (const [roomCode, room] of rooms.entries()) {
-        if (room.players.some(p => p.id === socket.id)) {
-          leaveRoom(socket, roomCode);
-        }
+      // Use the player index to find the room more efficiently
+      const roomCode = playerToRoom.get(socket.id);
+      if (roomCode) {
+        leaveRoom(socket, roomCode);
+        playerToRoom.delete(socket.id);
       }
     } catch (error) {
       console.error('Error handling disconnect:', error);

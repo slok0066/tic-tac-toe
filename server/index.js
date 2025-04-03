@@ -17,7 +17,13 @@ const io = new Server(server, {
       : ["http://localhost:5173", "http://127.0.0.1:5173"],
     methods: ["GET", "POST"],
     credentials: true
-  }
+  },
+  // Optimize Socket.IO for mobile performance
+  pingInterval: 5000,
+  pingTimeout: 8000,
+  transports: ["websocket"],
+  maxHttpBufferSize: 1e6, // 1MB
+  httpCompression: true
 });
 
 const PORT = process.env.PORT || 3001;
@@ -76,6 +82,9 @@ app.get('/api/test', (req, res) => {
 const rooms = new Map();
 const waitingPlayers = [];
 
+// Optimize memory usage by indexing players by socket ID
+const playerToRoom = new Map();
+
 // Helper function to leave a room
 const leaveRoom = (socket, roomCode) => {
   const room = rooms.get(roomCode);
@@ -119,6 +128,9 @@ io.on('connection', (socket) => {
       });
       
       socket.join(roomCode);
+      // Track which room this player is in for faster lookups
+      playerToRoom.set(socket.id, roomCode);
+      
       // Important: Send back the room code to the client
       socket.emit('room_created', { roomCode });
       console.log(`Room created: ${roomCode}`);
@@ -130,38 +142,45 @@ io.on('connection', (socket) => {
   
   // Join an existing room
   socket.on('join_room', (data) => {
-    const roomCode = data.roomCode;
-    
-    if (!roomCode) {
-      socket.emit('error', 'Room code is required');
-      return;
+    try {
+      const roomCode = data?.roomCode;
+      
+      if (!roomCode) {
+        socket.emit('error', 'Room code is required');
+        return;
+      }
+      
+      const room = rooms.get(roomCode);
+      
+      if (!room) {
+        socket.emit('error', 'Room not found');
+        return;
+      }
+      
+      if (room.players.length >= 2) {
+        socket.emit('error', 'Room is full');
+        return;
+      }
+      
+      // Add the player to the room
+      room.players.push({ id: socket.id, symbol: 'O' });
+      socket.join(roomCode);
+      // Track this player's room
+      playerToRoom.set(socket.id, roomCode);
+      
+      // Notify both players that the game is starting
+      io.to(roomCode).emit('game_start', {
+        roomCode,
+        isPlayerX: false,
+        players: room.players.map(p => ({ id: p.id, symbol: p.symbol })),
+        currentTurn: room.currentTurn
+      });
+      
+      console.log(`Player ${socket.id} joined room ${roomCode}`);
+    } catch (error) {
+      console.error('Error joining room:', error);
+      socket.emit('error', 'Failed to join room');
     }
-    
-    const room = rooms.get(roomCode);
-    
-    if (!room) {
-      socket.emit('error', 'Room not found');
-      return;
-    }
-    
-    if (room.players.length >= 2) {
-      socket.emit('error', 'Room is full');
-      return;
-    }
-    
-    // Add the player to the room
-    room.players.push({ id: socket.id, symbol: 'O' });
-    socket.join(roomCode);
-    
-    // Notify both players that the game is starting
-    io.to(roomCode).emit('game_start', {
-      roomCode,
-      isPlayerX: false,
-      players: room.players.map(p => ({ id: p.id, symbol: p.symbol })),
-      currentTurn: room.currentTurn
-    });
-    
-    console.log(`Player ${socket.id} joined room ${roomCode}`);
   });
   
   // Make a move
@@ -286,19 +305,23 @@ io.on('connection', (socket) => {
   
   // Handle disconnection
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.id}`);
-    
-    // Remove from waiting queue if present
-    const index = waitingPlayers.indexOf(socket.id);
-    if (index !== -1) {
-      waitingPlayers.splice(index, 1);
-    }
-    
-    // Handle leaving all rooms this socket is in
-    for (const [roomCode, room] of rooms.entries()) {
-      if (room.players.some(p => p.id === socket.id)) {
-        leaveRoom(socket, roomCode);
+    try {
+      console.log(`User disconnected: ${socket.id}`);
+      
+      // Remove from waiting queue if present
+      const index = waitingPlayers.indexOf(socket.id);
+      if (index !== -1) {
+        waitingPlayers.splice(index, 1);
       }
+      
+      // Use the player index to find the room more efficiently
+      const roomCode = playerToRoom.get(socket.id);
+      if (roomCode) {
+        leaveRoom(socket, roomCode);
+        playerToRoom.delete(socket.id);
+      }
+    } catch (error) {
+      console.error('Error handling disconnect:', error);
     }
   });
 });

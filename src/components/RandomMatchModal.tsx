@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback, memo } from 'react';
+import { motion } from 'framer-motion';
 import { X, Loader2 } from 'lucide-react';
 import socket, { findRandomMatch, cancelRandomMatch } from '../utils/socket';
 
@@ -8,60 +8,79 @@ interface RandomMatchModalProps {
   onClose: () => void;
 }
 
-export const RandomMatchModal = ({ onMatchFound, onClose }: RandomMatchModalProps) => {
+// Use memo to prevent unnecessary re-renders
+export const RandomMatchModal = memo(({ onMatchFound, onClose }: RandomMatchModalProps) => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchTime, setSearchTime] = useState(0);
 
+  // Memoize callbacks to prevent recreation on every render
+  const handleMatchFound = useCallback((data: { roomCode: string; isPlayerX: boolean }) => {
+    onMatchFound(data.roomCode, data.isPlayerX);
+  }, [onMatchFound]);
+
+  const handleWaiting = useCallback(() => {
+    setIsSearching(true);
+  }, []);
+
   useEffect(() => {
-    let timer: number;
+    let timer: number | undefined;
     if (isSearching) {
       timer = window.setInterval(() => {
         setSearchTime(prev => prev + 1);
       }, 1000);
     }
-    return () => clearInterval(timer);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, [isSearching]);
 
   useEffect(() => {
     // Listen for match found event
-    socket.on('match_found', (data: { roomCode: string; isPlayerX: boolean }) => {
-      onMatchFound(data.roomCode, data.isPlayerX);
-    });
+    socket.on('match_found', handleMatchFound);
     
     // Listen for waiting status
-    socket.on('waiting_for_match', () => {
-      setIsSearching(true);
-    });
+    socket.on('waiting_for_match', handleWaiting);
     
     return () => {
-      socket.off('match_found');
-      socket.off('waiting_for_match');
+      socket.off('match_found', handleMatchFound);
+      socket.off('waiting_for_match', handleWaiting);
     };
-  }, [onMatchFound]);
+  }, [handleMatchFound, handleWaiting]);
   
-  const handleStartSearch = () => {
+  const handleStartSearch = useCallback(() => {
     findRandomMatch();
-  };
+  }, []);
   
-  const handleCancelSearch = () => {
+  const handleCancelSearch = useCallback(() => {
     if (isSearching) {
       cancelRandomMatch();
       setIsSearching(false);
       setSearchTime(0);
     }
+  }, [isSearching]);
+
+  // Simplified animation for better performance
+  const modalAnimation = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: 0.2 }
+  };
+
+  const contentAnimation = {
+    initial: { scale: 0.95, opacity: 0 },
+    animate: { scale: 1, opacity: 1 },
+    exit: { scale: 0.95, opacity: 0 },
+    transition: { duration: 0.15 }
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      {...modalAnimation}
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        {...contentAnimation}
         className="bg-white rounded-2xl p-6 max-w-md w-full relative"
       >
         <button
@@ -90,19 +109,17 @@ export const RandomMatchModal = ({ onMatchFound, onClose }: RandomMatchModalProp
         ) : (
           <div className="text-center py-4">
             <p className="text-gray-600 mb-6">
-              Find a random opponent to play against. The matchmaking system will pair you with another player looking for a game.
+              Find a random opponent to play against.
             </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={handleStartSearch}
               className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl text-white font-semibold hover:from-blue-600 hover:to-blue-700 shadow-md"
             >
               Find Opponent
-            </motion.button>
+            </button>
           </div>
         )}
       </motion.div>
     </motion.div>
   );
-};
+});
