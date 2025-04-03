@@ -131,6 +131,7 @@ function App() {
   const [pendingGameMode, setPendingGameMode] = useState<GameMode | null>(null);
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedGameType, setSelectedGameType] = useState<GameType>('normal');
 
   // Reduce the number of background elements for low-end devices
   const bgElementCount = isLowEndDevice ? 2 : 5;
@@ -447,6 +448,9 @@ function App() {
   const handleGameTypeSelect = (gameType: GameType) => {
     playClickSound();
     
+    // Save the selected game type
+    setSelectedGameType(gameType);
+    
     // Start timer for new game
     if (settings.showTimer) {
       setGameStartTime(new Date());
@@ -502,7 +506,12 @@ function App() {
   const handleDifficultySelect = (difficulty: Difficulty) => {
     playClickSound();
     setGameMode(pendingGameMode);
-    setGameState(prev => ({ ...prev, difficulty, theme: settings.theme }));
+    setGameState(prev => ({ 
+      ...prev, 
+      difficulty, 
+      theme: settings.theme,
+      gameType: selectedGameType // Apply the selected game type
+    }));
     setShowDifficultyModal(false);
     setPendingGameMode(null);
   };
@@ -516,7 +525,8 @@ function App() {
       roomCode: roomCode,
       roomStatus: 'waiting',
       playerSymbol: 'X',
-      theme: settings.theme
+      theme: settings.theme,
+      gameType: selectedGameType // Apply the selected game type
     }));
     setShowRoomModal(false);
     setPendingGameMode(null);
@@ -531,7 +541,8 @@ function App() {
       roomCode: roomCode,
       roomStatus: 'joining',
       playerSymbol: 'O',
-      theme: settings.theme
+      theme: settings.theme,
+      gameType: selectedGameType // Apply the selected game type
     }));
     setShowRoomModal(false);
     setPendingGameMode(null);
@@ -545,7 +556,8 @@ function App() {
       roomCode: roomCode,
       roomStatus: 'playing',
       playerSymbol: isPlayerX ? 'X' : 'O',
-      theme: settings.theme
+      theme: settings.theme,
+      gameType: selectedGameType // Apply the selected game type
     }));
     setShowRandomMatchModal(false);
     setPendingGameMode(null);
