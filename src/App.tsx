@@ -496,11 +496,27 @@ function App() {
     initializeAudio();
     playClickSound();
     
-    // First show the game type modal
+    // Start timer for new game
+    if (settings.showTimer) {
+      setGameStartTime(new Date());
+    }
+    
+    // Special handling for friend and infinity modes - skip the game type selection
+    if (mode === 'friend') {
+      setGameMode(mode);
+      resetGame('normal'); // Friend mode is always normal type
+      return;
+    }
+    
+    if (mode === 'infinity') {
+      setGameMode('friend'); // Use friend mode with infinity game type
+      resetGame('infinity');
+      return;
+    }
+    
+    // For other modes (AI, online, random), show the game type modal
     setPendingGameMode(mode);
     setShowGameTypeModal(true);
-    
-    // The rest of the flow will happen after the user selects a game type
   };
 
   const handleDifficultySelect = (difficulty: Difficulty) => {
