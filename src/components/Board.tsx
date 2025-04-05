@@ -1,8 +1,13 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Circle, X } from 'lucide-react';
+<<<<<<< HEAD
 import { BoardState, Player, Theme, GameSettings, SYMBOL_OPTIONS } from '../types';
 import { getThemeClasses, getBoardStyleClasses } from '../utils/theme';
+=======
+import { BoardState, Player, Theme, GameSettings } from '../types';
+import { getThemeClasses } from '../utils/theme';
+>>>>>>> origin/main
 
 interface BoardProps {
   board: BoardState;
@@ -13,7 +18,11 @@ interface BoardProps {
   winner: Player | 'draw' | null;
   theme: Theme;
   settings: GameSettings;
+<<<<<<< HEAD
   fadingSymbols?: number[]; // Added for Infinity mode
+=======
+  fadingSymbols?: number[];
+>>>>>>> origin/main
 }
 
 // Memoize the board component to prevent unnecessary re-renders
@@ -26,13 +35,20 @@ export const Board = memo(({
   winner,
   theme,
   settings,
+<<<<<<< HEAD
   fadingSymbols = [] // Default to empty array
+=======
+  fadingSymbols = []
+>>>>>>> origin/main
 }: BoardProps) => {
   const xColor = getThemeClasses(theme, 'xColor');
   const oColor = getThemeClasses(theme, 'oColor');
   const boardBg = settings.darkMode ? 'bg-gray-700' : getThemeClasses(theme, 'boardBg');
+<<<<<<< HEAD
   const boardStyleClasses = getBoardStyleClasses(settings.boardStyle, settings.darkMode);
   const symbols = SYMBOL_OPTIONS[settings.symbolStyle];
+=======
+>>>>>>> origin/main
   
   // Check if we're likely on a low-end device
   const isLowEndDevice = window.navigator.hardwareConcurrency 
@@ -90,6 +106,7 @@ export const Board = memo(({
     const key = winningLine.join(',');
     return coordinates[key as keyof typeof coordinates] || null;
   };
+<<<<<<< HEAD
 
   // Determine if a cell belongs to the current player
   const isCellForCurrentPlayer = (index: number): boolean => {
@@ -132,11 +149,17 @@ export const Board = memo(({
       }
     }
   };
+=======
+>>>>>>> origin/main
   
   return (
     <div className="relative perspective-1000">
       <motion.div 
+<<<<<<< HEAD
         className={`grid grid-cols-3 gap-3 p-4 rounded-xl ${boardBg} ${boardStyleClasses} shadow-xl transform-style-3d`}
+=======
+        className={`grid grid-cols-3 gap-3 p-4 rounded-xl ${boardBg} shadow-xl transform-style-3d`}
+>>>>>>> origin/main
         initial={{ rotateX: showAnimations ? 15 : 0 }}
         animate={{ rotateX: 0 }}
         transition={{ 
@@ -145,6 +168,7 @@ export const Board = memo(({
           damping: 20 
         }}
       >
+<<<<<<< HEAD
         {board.map((cell, index) => {
           // Check if this cell should show fading effect (only when it's the player's turn and it's their symbol)
           const shouldShowFading = fadingSymbols.includes(index) && isCellForCurrentPlayer(index);
@@ -239,6 +263,127 @@ export const Board = memo(({
             </motion.button>
           );
         })}
+=======
+        {board.map((cell, index) => (
+          <motion.button
+            key={index}
+            className={`h-24 w-24 bg-gradient-to-br ${cellBgClass} rounded-xl shadow-md flex items-center justify-center
+              ${disabled ? 'cursor-not-allowed' : ''}
+              ${winningLine?.includes(index) ? winningCellClass : ''}
+              transition-all duration-200`}
+            onClick={() => onCellClick(index)}
+            disabled={cell !== null || disabled}
+            whileHover={cell === null && !disabled && showAnimations ? { 
+              scale: 1.03, 
+              boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+              y: -2 
+            } : {}}
+            whileTap={cell === null && !disabled && showAnimations ? { 
+              scale: 0.97, 
+              y: 0 
+            } : {}}
+            layout
+            transition={{ 
+              type: isLowEndDevice ? "tween" : "spring", 
+              stiffness: settings.animationSpeed === 'fast' ? 600 : 
+                         settings.animationSpeed === 'medium' ? 500 : 400, 
+              damping: 30 
+            }}
+          >
+            {cell && (
+              <motion.div
+                initial={showAnimations ? { scale: 0, rotate: -180 } : { scale: 1 }}
+                animate={{ 
+                  scale: 1, 
+                  rotate: 0,
+                  opacity: fadingSymbols.includes(index) ? 0.4 : 1
+                }}
+                transition={{ 
+                  type: isLowEndDevice ? "tween" : "spring", 
+                  stiffness: isLowEndDevice ? undefined : 300, 
+                  damping: isLowEndDevice ? undefined : 20, 
+                  duration: getAnimationDuration() 
+                }}
+                className={`w-full h-full flex items-center justify-center ${
+                  fadingSymbols.includes(index) ? 'animate-pulse relative' : ''
+                }`}
+              >
+                {fadingSymbols.includes(index) && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute w-full h-full rounded-lg border-2 border-red-500 animate-ping opacity-70"></div>
+                    {showAnimations && (
+                      <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1, opacity: [0.5, 0.7, 0.5] }}
+                        transition={{ 
+                          duration: 1.5, 
+                          repeat: Infinity,
+                          repeatType: 'reverse' 
+                        }}
+                        className="absolute -bottom-6 text-xs font-bold bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-200 px-2 py-0.5 rounded-md"
+                      >
+                        Next to go
+                      </motion.div>
+                    )}
+                  </div>
+                )}
+                {cell === 'X' ? (
+                  <motion.div
+                    initial={showAnimations ? { pathLength: 0, opacity: 0 } : { pathLength: 1, opacity: 1 }}
+                    animate={{ 
+                      pathLength: 1, 
+                      opacity: fadingSymbols.includes(index) ? 0.4 : 1 
+                    }}
+                    transition={{ 
+                      duration: getAnimationDuration(), 
+                      ease: "easeInOut" 
+                    }}
+                  >
+                    <X className={`w-12 h-12 ${xColor}`} strokeWidth={3} />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    initial={showAnimations ? { opacity: 0, scale: 0 } : { opacity: 1, scale: 1 }}
+                    animate={{ 
+                      opacity: fadingSymbols.includes(index) ? 0.4 : 1, 
+                      scale: 1 
+                    }}
+                    transition={{ 
+                      duration: getAnimationDuration() * 0.6, 
+                      ease: "easeOut" 
+                    }}
+                  >
+                    <Circle className={`w-12 h-12 ${oColor}`} strokeWidth={3} />
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+            {!cell && !disabled && showHints && !isLowEndDevice && (
+              <motion.div
+                className="opacity-0 hover:opacity-40"
+                initial={false}
+                animate={{ 
+                  scale: [0.8, 1, 0.8], 
+                  opacity: [0, 0.3, 0] 
+                }}
+                transition={{ 
+                  repeat: Infinity, 
+                  repeatType: "loop", 
+                  duration: settings.animationSpeed === 'slow' ? 3 : 
+                             settings.animationSpeed === 'medium' ? 2 : 1.5, 
+                  ease: "easeInOut" 
+                }}
+              >
+                {currentPlayer === 'X' ? (
+                  <X className={`w-12 h-12 ${xColor}`} strokeWidth={2} />
+                ) : (
+                  <Circle className={`w-12 h-12 ${oColor}`} strokeWidth={2} />
+                )}
+              </motion.div>
+            )}
+          </motion.button>
+        ))}
+>>>>>>> origin/main
       </motion.div>
       
       {winner && (
@@ -246,7 +391,11 @@ export const Board = memo(({
           initial={showAnimations ? { scale: 0.9, opacity: 0 } : { scale: 1, opacity: 1 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: getAnimationDuration() }}
+<<<<<<< HEAD
           className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-xl z-10"
+=======
+          className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 backdrop-blur-sm rounded-xl z-10"
+>>>>>>> origin/main
         >
           <motion.div
             initial={showAnimations ? { y: -10, opacity: 0 } : { y: 0, opacity: 1 }}
@@ -257,6 +406,7 @@ export const Board = memo(({
               damping: isLowEndDevice ? undefined : 20, 
               duration: getAnimationDuration() 
             }}
+<<<<<<< HEAD
             className={`${resultBoxClass} px-8 py-6 rounded-xl shadow-lg border-4 ${
               winner === 'draw' 
                 ? 'border-amber-500 dark:border-amber-400' 
@@ -384,11 +534,30 @@ export const Board = memo(({
                 </>
               )}
             </motion.div>
+=======
+            className={`${resultBoxClass} px-8 py-6 rounded-xl shadow-lg`}
+          >
+            <motion.h2 
+              className={`text-3xl font-bold ${
+                settings.darkMode ? 'text-white' : `bg-gradient-to-r ${getThemeClasses(theme, 'gradient')} text-transparent bg-clip-text`
+              }`}
+              animate={showAnimations && !isLowEndDevice ? { scale: [1, 1.05, 1] } : { scale: 1 }}
+              transition={{ 
+                duration: settings.animationSpeed === 'slow' ? 2 : 
+                           settings.animationSpeed === 'medium' ? 1.5 : 1, 
+                repeat: Infinity, 
+                repeatType: "loop" 
+              }}
+            >
+              {winner === 'draw' ? "It's a Draw!" : `${winner} Wins!`}
+            </motion.h2>
+>>>>>>> origin/main
           </motion.div>
         </motion.div>
       )}
       
       {/* Add winning line animation */}
+<<<<<<< HEAD
       {winningLine && getLineCoordinates(winningLine) && showAnimations && (
         <svg 
           className="absolute inset-0 z-20 pointer-events-none" 
@@ -414,6 +583,40 @@ export const Board = memo(({
             strokeDashoffset="1"
           />
         </svg>
+=======
+      {winningLine && winningLine.length > 0 && showAnimations && (
+        <motion.div 
+          className="absolute inset-0 pointer-events-none z-5"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <svg className="w-full h-full absolute" style={{ zIndex: 2 }}>
+            {(() => {
+              const coords = getLineCoordinates(winningLine);
+              if (!coords) return null;
+              
+              return (
+                <motion.line
+                  x1={coords.x1}
+                  y1={coords.y1}
+                  x2={coords.x2}
+                  y2={coords.y2}
+                  stroke={settings.darkMode ? '#ffffff' : `var(--${theme}-500)`}
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 0.8 }}
+                  transition={{ 
+                    duration: getAnimationDuration() * 1.3, 
+                    ease: "easeOut" 
+                  }}
+                />
+              );
+            })()}
+          </svg>
+        </motion.div>
+>>>>>>> origin/main
       )}
     </div>
   );

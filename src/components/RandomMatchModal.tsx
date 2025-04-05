@@ -49,8 +49,11 @@ export const RandomMatchModal = memo(({ onMatchFound, onClose }: RandomMatchModa
   
   const handleStartSearch = useCallback(() => {
     findRandomMatch();
+<<<<<<< HEAD
     // Start searching immediately without waiting for server response
     setIsSearching(true);
+=======
+>>>>>>> origin/main
   }, []);
   
   const handleCancelSearch = useCallback(() => {
@@ -76,6 +79,7 @@ export const RandomMatchModal = memo(({ onMatchFound, onClose }: RandomMatchModa
     transition: { duration: 0.15 }
   };
 
+<<<<<<< HEAD
   // Custom spinner animation
   const spinnerAnimation = {
     animate: { 
@@ -88,6 +92,8 @@ export const RandomMatchModal = memo(({ onMatchFound, onClose }: RandomMatchModa
     }
   };
 
+=======
+>>>>>>> origin/main
   return (
     <motion.div
       {...modalAnimation}
@@ -109,12 +115,16 @@ export const RandomMatchModal = memo(({ onMatchFound, onClose }: RandomMatchModa
         {isSearching ? (
           <div className="text-center py-8">
             <div className="flex justify-center mb-4">
+<<<<<<< HEAD
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               >
                 <Loader2 className="w-12 h-12 text-blue-500" />
               </motion.div>
+=======
+              <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+>>>>>>> origin/main
             </div>
             <p className="text-gray-700 mb-2">Searching for opponent...</p>
             <p className="text-gray-500 mb-6">Time elapsed: {searchTime}s</p>

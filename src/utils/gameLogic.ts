@@ -1,12 +1,18 @@
+<<<<<<< HEAD
 import { BoardState, Player, Difficulty, BoardSize, UltimateBoard } from '../types';
 
 // Standard 3x3 winning combinations
+=======
+import { BoardState, Player, Difficulty } from '../types';
+
+>>>>>>> origin/main
 export const WINNING_COMBINATIONS = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
   [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
   [0, 4, 8], [2, 4, 6] // Diagonals
 ];
 
+<<<<<<< HEAD
 // 4x4 winning combinations
 export const WINNING_COMBINATIONS_4X4 = [
   // Rows
@@ -64,6 +70,13 @@ export const checkWinner = (board: BoardState, boardSize: BoardSize = '3x3'): { 
     const [first, ...rest] = combo;
     if (board[first] && rest.every(pos => board[pos] === board[first])) {
       return { winner: board[first], line: combo };
+=======
+export const checkWinner = (board: BoardState): { winner: Player | 'draw' | null; line: number[] | null } => {
+  for (const combo of WINNING_COMBINATIONS) {
+    const [a, b, c] = combo;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return { winner: board[a], line: combo };
+>>>>>>> origin/main
     }
   }
 
@@ -74,6 +87,7 @@ export const checkWinner = (board: BoardState, boardSize: BoardSize = '3x3'): { 
   return { winner: null, line: null };
 };
 
+<<<<<<< HEAD
 // Initialize an Ultimate Tic-Tac-Toe board
 export const initializeUltimateBoard = (): UltimateBoard => {
   return {
@@ -160,6 +174,11 @@ const minimax = (
   boardSize: BoardSize = '3x3'
 ): number => {
   const { winner } = checkWinner(board, boardSize);
+=======
+// Minimax algorithm with alpha-beta pruning for efficiency
+const minimax = (board: BoardState, depth: number, isMaximizing: boolean, alpha: number = -Infinity, beta: number = Infinity): number => {
+  const { winner } = checkWinner(board);
+>>>>>>> origin/main
   
   if (winner === 'O') return 10 - depth;
   if (winner === 'X') return depth - 10;
@@ -170,7 +189,11 @@ const minimax = (
     for (let i = 0; i < board.length; i++) {
       if (board[i] === null) {
         board[i] = 'O';
+<<<<<<< HEAD
         const evalScore = minimax(board, depth + 1, false, alpha, beta, boardSize);
+=======
+        const evalScore = minimax(board, depth + 1, false, alpha, beta);
+>>>>>>> origin/main
         board[i] = null;
         maxEval = Math.max(maxEval, evalScore);
         alpha = Math.max(alpha, evalScore);
@@ -180,11 +203,19 @@ const minimax = (
     return maxEval;
   } else {
     let minEval = Infinity;
+<<<<<<< HEAD
     for (let i = 0; i < board.length; i++) {
       if (board[i] === null) {
         board[i] = 'X';
         const evalScore = minimax(board, depth + 1, true, alpha, beta, boardSize);
         board[i] = null;
+=======
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] === null) {
+        board[i] = 'X';
+        const evalScore = minimax(board, depth + 1, true, alpha, beta);
+      board[i] = null;
+>>>>>>> origin/main
         minEval = Math.min(minEval, evalScore);
         beta = Math.min(beta, evalScore);
         if (beta <= alpha) break; // Alpha-beta pruning
@@ -194,7 +225,11 @@ const minimax = (
   }
 };
 
+<<<<<<< HEAD
 export const getAIMove = (board: BoardState, difficulty: Difficulty, boardSize: BoardSize = '3x3'): number => {
+=======
+export const getAIMove = (board: BoardState, difficulty: Difficulty): number => {
+>>>>>>> origin/main
   const availableMoves = board.reduce<number[]>((acc, cell, index) => {
     if (cell === null) acc.push(index);
     return acc;
@@ -220,13 +255,21 @@ export const getAIMove = (board: BoardState, difficulty: Difficulty, boardSize: 
     // Check if AI can win
     const testBoard = [...board];
     testBoard[move] = 'O';
+<<<<<<< HEAD
     if (checkWinner(testBoard, boardSize).winner === 'O') {
+=======
+    if (checkWinner(testBoard).winner === 'O') {
+>>>>>>> origin/main
       return move;
     }
 
     // Check if need to block player
     testBoard[move] = 'X';
+<<<<<<< HEAD
     if (checkWinner(testBoard, boardSize).winner === 'X') {
+=======
+    if (checkWinner(testBoard).winner === 'X') {
+>>>>>>> origin/main
       return move;
     }
   }
@@ -239,7 +282,11 @@ export const getAIMove = (board: BoardState, difficulty: Difficulty, boardSize: 
     for (const move of availableMoves) {
       const testBoard = [...board];
       testBoard[move] = 'O';
+<<<<<<< HEAD
       const score = minimax(testBoard, 0, false, -Infinity, Infinity, boardSize);
+=======
+      const score = minimax(testBoard, 0, false);
+>>>>>>> origin/main
       if (score > bestScore) {
         bestScore = score;
         bestMove = move;
@@ -258,7 +305,11 @@ export const getAIMove = (board: BoardState, difficulty: Difficulty, boardSize: 
       for (const move of availableMoves) {
         const testBoard = [...board];
         testBoard[move] = 'O';
+<<<<<<< HEAD
         const score = minimax(testBoard, 0, false, -Infinity, Infinity, boardSize);
+=======
+        const score = minimax(testBoard, 0, false);
+>>>>>>> origin/main
         if (score > bestScore) {
           bestScore = score;
           bestMove = move;
@@ -269,11 +320,15 @@ export const getAIMove = (board: BoardState, difficulty: Difficulty, boardSize: 
   }
 
   // If center is available, take it
+<<<<<<< HEAD
   const centerIndex = boardSize === '3x3' ? 4 : 
                      boardSize === '4x4' ? 5 : // Use 5 (near center) for 4x4 
                      boardSize === '5x5' ? 12 : 4; // Center is 12 in 5x5
                      
   if (board[centerIndex] === null) return centerIndex;
+=======
+  if (board[4] === null) return 4;
+>>>>>>> origin/main
 
   // Otherwise, choose random corner or side
   return availableMoves[Math.floor(Math.random() * availableMoves.length)];

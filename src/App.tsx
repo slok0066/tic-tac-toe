@@ -6,9 +6,14 @@ import { DifficultyModal } from './components/DifficultyModal';
 import { RoomModal } from './components/RoomModal';
 import { RandomMatchModal } from './components/RandomMatchModal';
 import { SettingsModal } from './components/SettingsModal';
+<<<<<<< HEAD
 import { GameResultModal } from './components/GameResultModal';
 import { checkWinner, getAIMove } from './utils/gameLogic';
 import { GameState, GameMode, Player, Difficulty, RoomStatus, GameSettings, GameType, BoardSize, BoardState, MoveInfo } from './types';
+=======
+import { checkWinner, getAIMove } from './utils/gameLogic';
+import { GameState, GameMode, Player, Difficulty, RoomStatus, GameSettings, GameType } from './types';
+>>>>>>> origin/main
 import socket from './utils/socket';
 import { getThemeClasses, applyTheme } from './utils/theme';
 import { 
@@ -18,6 +23,7 @@ import {
   playClickSound,
   setSoundEnabled
 } from './utils/sounds';
+<<<<<<< HEAD
 import { UltimateBoard } from './components/UltimateBoard';
 import { LargeBoard } from './components/LargeBoard';
 import { 
@@ -27,6 +33,8 @@ import {
   getBoardSizeFromLength
 } from './utils/gameLogic';
 import { TutorialPage } from './components/TutorialPage';
+=======
+>>>>>>> origin/main
 
 const initialGameState: GameState = {
   board: Array(9).fill(null),
@@ -35,9 +43,15 @@ const initialGameState: GameState = {
   winningLine: null,
   theme: 'blue',
   showConfetti: false,
+<<<<<<< HEAD
   gameType: 'normal',
   boardSize: '3x3',
   gameResult: null
+=======
+  moveHistory: [],
+  fadingSymbols: [],
+  gameType: 'normal'
+>>>>>>> origin/main
 };
 
 const initialSettings: GameSettings = {
@@ -49,6 +63,7 @@ const initialSettings: GameSettings = {
   animationSpeed: 'medium',
   showHints: true,
   hapticFeedback: false,
+<<<<<<< HEAD
   showTimer: false,
   difficulty: 'medium',
   boardSize: '3x3',
@@ -56,6 +71,9 @@ const initialSettings: GameSettings = {
   symbolStyle: 'classic',
   soundPack: 'arcade',
   backgroundMusic: false
+=======
+  showTimer: false
+>>>>>>> origin/main
 };
 
 // Reusable Settings Button Component
@@ -135,11 +153,14 @@ const isLowEndDevice = window.navigator.hardwareConcurrency
   ? window.navigator.hardwareConcurrency <= 4
   : true; // Assume low-end if we can't detect
 
+<<<<<<< HEAD
 // Define these constants at the top of the App function, after the state variables
 // Style constants for consistent UI
 const gameModeButtonStyle = `flex flex-col items-center justify-center p-4 rounded-2xl space-y-3 transition-all hover:scale-105 cursor-pointer select-none touch-manipulation shadow-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-white`;
 const gameModeButtonActiveStyle = `ring-4 ring-offset-4 dark:ring-offset-gray-900 ring-blue-500 scale-105 bg-blue-50 dark:bg-blue-900`;
 
+=======
+>>>>>>> origin/main
 function App() {
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
   const [gameState, setGameState] = useState<GameState>(initialGameState);
@@ -153,10 +174,13 @@ function App() {
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedGameType, setSelectedGameType] = useState<GameType>('normal');
+<<<<<<< HEAD
   const [showTutorial, setShowTutorial] = useState(false);
   
   // For Ultimate Tic-Tac-Toe
   const [ultimateBoard, setUltimateBoard] = useState(initializeUltimateBoard());
+=======
+>>>>>>> origin/main
 
   // Reduce the number of background elements for low-end devices
   const bgElementCount = isLowEndDevice ? 2 : 5;
@@ -197,6 +221,7 @@ function App() {
     if (gameMode === 'online') {
       try {
         // Handle incoming moves from opponent
+<<<<<<< HEAD
         const handleOpponentMove = (data: { position: number; symbol: string; board: any[]; currentTurn: string; moveHistory?: MoveInfo[]; fadingSymbols?: number[] }) => {
           setGameState(prev => {
             try {
@@ -208,6 +233,15 @@ function App() {
               
               // Play move sound
               playMoveSound(symbol as Player);
+=======
+        const handleOpponentMove = (data: { position: number; symbol: string; board: any[]; currentTurn: string }) => {
+          setGameState(prev => {
+            try {
+              const { winner, line } = checkWinner(data.board);
+              
+              // Play move sound
+              playMoveSound(data.symbol as Player);
+>>>>>>> origin/main
               
               // Remove confetti animation for wins
               const showConfetti = false; // Always set to false to disable win animation
@@ -216,6 +250,7 @@ function App() {
                 // Small delay to ensure sound plays after the move sound
                 setTimeout(() => {
                   playResultSound(winner === 'draw' ? 'draw' : 'win');
+<<<<<<< HEAD
                 }, 300);
               }
               
@@ -238,6 +273,22 @@ function App() {
               };
             } catch (err) {
               console.error("Error handling move:", err);
+=======
+                  console.log(`Online: Playing ${winner === 'draw' ? 'draw' : 'win'} sound`);
+                }, 300);
+              }
+              
+              return {
+                ...prev,
+                board: data.board,
+                currentPlayer: data.currentTurn as Player,
+                winner,
+                winningLine: line,
+                showConfetti
+              };
+            } catch (err) {
+              console.error("Error in handleOpponentMove:", err);
+>>>>>>> origin/main
               return prev;
             }
           });
@@ -288,6 +339,7 @@ function App() {
         // Handle player disconnection
         socket.on('player_left', handlePlayerLeft);
         
+<<<<<<< HEAD
         // In the socket event handlers part, update the game_over handler
         socket.on('game_over', (data: { winner: Player | 'draw' }) => {
           console.log('Game over received:', data);
@@ -318,6 +370,8 @@ function App() {
           });
         });
         
+=======
+>>>>>>> origin/main
         return () => {
           // Clean up socket listeners
           socket.off('move_made');
@@ -340,6 +394,7 @@ function App() {
     };
   }, [gameState.roomCode]);
 
+<<<<<<< HEAD
   // Determine if board size can be selected for the current game mode
   const isBoardSizeSelectable = gameMode === 'ai' || gameMode === 'friend' || !gameMode;
   
@@ -394,10 +449,28 @@ function App() {
     );
     
     if (!validMove) return;
+=======
+  const handleCellClick = (index: number) => {
+    if (gameState.board[index] || gameState.winner) return;
+
+    // For online games, only allow moves for the current player
+    if (gameMode === 'online' && gameState.currentPlayer !== gameState.playerSymbol) return;
+
+    // Use infinity mode logic for infinity game type
+    if (gameState.gameType === 'infinity') {
+      handleInfinityModeClick(index);
+      return;
+    }
+
+    // Normal game logic
+    const newBoard = [...gameState.board];
+    newBoard[index] = gameState.currentPlayer;
+>>>>>>> origin/main
     
     // Play move sound
     playMoveSound(gameState.currentPlayer);
     
+<<<<<<< HEAD
     // Update the board state
     setUltimateBoard(newBoard);
     
@@ -735,6 +808,188 @@ function App() {
   };
 
   // Then use it in the resetGame function:
+=======
+    const { winner, line } = checkWinner(newBoard);
+    
+    // Play result sound if there's a winner
+    if (winner) {
+      setTimeout(() => {
+        playResultSound(winner === 'draw' ? 'draw' : 'win');
+        console.log(`Playing ${winner === 'draw' ? 'draw' : 'win'} sound`);
+      }, 300);
+    }
+    
+    // Always set showConfetti to false to disable win animation
+    const showConfetti = false;
+    
+    // Update local game state
+    setGameState(prev => ({
+      ...prev,
+      board: newBoard,
+      currentPlayer: prev.currentPlayer === 'X' ? 'O' : 'X',
+      winner,
+      winningLine: line,
+      showConfetti
+    }));
+
+    // For online mode, emit move to socket
+    if (gameMode === 'online') {
+      socket.emit('make_move', {
+        position: index,
+        symbol: gameState.currentPlayer,
+        board: newBoard
+      });
+    }
+  };
+
+  // Special handling for infinity mode (each player only has 3 symbols)
+  const handleInfinityModeClick = (index: number) => {
+    if (gameState.board[index] || gameState.winner) return;
+    
+    // Make a copy of the game state to work with
+    const newBoard = [...gameState.board];
+    let newMoveHistory = [...gameState.moveHistory];
+    let newFadingSymbols: number[] = [...gameState.fadingSymbols];
+    
+    // Count existing symbols for current player
+    const playerMoves = newMoveHistory.filter(move => move.player === gameState.currentPlayer);
+    
+    // Check if this player already has 3 symbols (we're placing the 4th)
+    const isPlacingFourthSymbol = playerMoves.length >= 3;
+    
+    // Add the new move to history
+    const newMove = {
+      player: gameState.currentPlayer,
+      position: index,
+      timestamp: Date.now()
+    };
+    newMoveHistory.push(newMove);
+    
+    // Place the symbol
+    newBoard[index] = gameState.currentPlayer;
+
+    // If this player already has 3 symbols before placing the current one (placing 4th),
+    // we'll need to remove their oldest symbol
+    if (isPlacingFourthSymbol) {
+      // Find the oldest move by this player
+      const oldestMove = playerMoves.reduce((oldest, current) => 
+        current.timestamp < oldest.timestamp ? current : oldest, playerMoves[0]);
+      
+      // Remove this symbol from the board
+      newBoard[oldestMove.position] = null;
+      
+      // Remove it from move history
+      const updatedMoveHistory = newMoveHistory.filter(move => 
+        !(move.player === gameState.currentPlayer && move.position === oldestMove.position)
+      );
+      
+      // Clear fading symbols for this player
+      newFadingSymbols = newFadingSymbols.filter(pos => 
+        !playerMoves.some(move => move.position === pos && move.player === gameState.currentPlayer)
+      );
+      
+      // Update the move history
+      newMoveHistory = updatedMoveHistory;
+    } 
+    // If this is the 3rd symbol, mark the oldest for potential removal on next turn
+    else if (playerMoves.length === 2) { // We're placing the 3rd symbol now
+      // Find the oldest move by this player
+      const oldestMove = playerMoves.reduce((oldest, current) => 
+        current.timestamp < oldest.timestamp ? current : oldest, playerMoves[0]);
+      
+      // Mark the oldest move as fading - it will be removed when placing the 4th symbol
+      newFadingSymbols.push(oldestMove.position);
+    }
+
+    // Keep fading symbols for the opponent - they don't change
+    const opponent = gameState.currentPlayer === 'X' ? 'O' : 'X';
+    const opponentMoves = newMoveHistory.filter(move => move.player === opponent);
+    
+    // If opponent has exactly 3 symbols, mark their oldest for potential removal
+    if (opponentMoves.length === 3) {
+      // Only add if not already in fading symbols
+      const oldestOpponentMove = opponentMoves.reduce((oldest, current) => 
+        current.timestamp < oldest.timestamp ? current : oldest, opponentMoves[0]);
+      
+      if (!newFadingSymbols.includes(oldestOpponentMove.position)) {
+        newFadingSymbols.push(oldestOpponentMove.position);
+      }
+    }
+    
+    // Play move sound
+    playMoveSound(gameState.currentPlayer);
+    
+    // Check for winner after the new move
+    const { winner, line } = checkWinner(newBoard);
+    
+    // Play result sound if there's a winner
+    if (winner) {
+      setTimeout(() => {
+        playResultSound(winner === 'draw' ? 'draw' : 'win');
+        console.log(`Playing ${winner === 'draw' ? 'draw' : 'win'} sound`);
+      }, 300);
+    }
+    
+    // Always set showConfetti to false to disable win animation
+    const showConfetti = false;
+    
+    // Update game state with the new move
+    setGameState(prev => ({
+      ...prev,
+      board: newBoard,
+      currentPlayer: prev.currentPlayer === 'X' ? 'O' : 'X',
+      winner,
+      winningLine: line,
+      showConfetti,
+      moveHistory: newMoveHistory,
+      fadingSymbols: newFadingSymbols
+    }));
+  };
+
+  // AI move logic
+  useEffect(() => {
+    if (gameMode === 'ai' && gameState.currentPlayer === 'O' && !gameState.winner && gameState.difficulty) {
+      const timer = setTimeout(() => {
+        const aiMove = getAIMove(gameState.board, gameState.difficulty!);
+        
+        // Only make a move if aiMove is valid
+        if (aiMove >= 0) {
+        handleCellClick(aiMove);
+        }
+      }, 600);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.currentPlayer, gameMode, gameState.board, gameState.difficulty, gameState.winner]);
+
+  const handleGameTypeSelect = (gameType: GameType) => {
+    playClickSound();
+    
+    // Save the selected game type
+    setSelectedGameType(gameType);
+    
+    // Start timer for new game
+    if (settings.showTimer) {
+      setGameStartTime(new Date());
+    }
+    
+    // Now that we have both game mode and type, proceed with initialization
+    if (pendingGameMode === 'ai') {
+      setShowDifficultyModal(true);
+    } else if (pendingGameMode === 'online') {
+      setShowRoomModal(true);
+    } else if (pendingGameMode === 'random') {
+      setShowRandomMatchModal(true);
+    } else {
+      // For friend mode, just start the game
+      setGameMode(pendingGameMode);
+      resetGame(gameType);
+    }
+    
+    setShowGameTypeModal(false);
+  };
+
+>>>>>>> origin/main
   const resetGame = (gameType = gameState.gameType) => {
     playClickSound();
     
@@ -750,6 +1005,7 @@ function App() {
       playerSymbol: prev.playerSymbol,
       roomStatus: prev.roomStatus,
       theme: settings.theme,
+<<<<<<< HEAD
       gameType,
       moveHistory: isInfinityGameType(gameType) ? [] : undefined,
       fadingSymbols: isInfinityGameType(gameType) ? [] : undefined
@@ -847,13 +1103,53 @@ function App() {
     playClickSound();
     
     // For all modes, show game type selection first
+=======
+      gameType: gameType
+    }));
+  };
+
+  const handleGameModeSelect = (mode: GameMode) => {
+    // Initialize audio on first user interaction
+    initializeAudio();
+    playClickSound();
+    
+    // Start timer for new game
+    if (settings.showTimer) {
+      setGameStartTime(new Date());
+    }
+    
+    // Special handling for friend and infinity modes - skip the game type selection
+    if (mode === 'friend') {
+      setGameMode(mode);
+      resetGame('normal'); // Friend mode is always normal type
+      return;
+    }
+    
+    if (mode === 'infinity') {
+      setGameMode('friend'); // Use friend mode with infinity game type
+      resetGame('infinity');
+      return;
+    }
+    
+    // For other modes (AI, online, random), show the game type modal
+>>>>>>> origin/main
     setPendingGameMode(mode);
     setShowGameTypeModal(true);
   };
 
   const handleDifficultySelect = (difficulty: Difficulty) => {
     playClickSound();
+<<<<<<< HEAD
     startGame(pendingGameMode as GameMode, { difficulty });
+=======
+    setGameMode(pendingGameMode);
+    setGameState(prev => ({ 
+      ...prev, 
+      difficulty, 
+      theme: settings.theme,
+      gameType: selectedGameType // Apply the selected game type
+    }));
+>>>>>>> origin/main
     setShowDifficultyModal(false);
     setPendingGameMode(null);
   };
@@ -861,11 +1157,23 @@ function App() {
   const handleCreateRoom = (roomCode: string) => {
     playClickSound();
     socket.emit('create_room', { roomCode });
+<<<<<<< HEAD
     startGame(pendingGameMode as GameMode, { 
       roomCode, 
       roomStatus: 'waiting',
       playerSymbol: 'X' 
     });
+=======
+    setGameMode(pendingGameMode);
+    setGameState(prev => ({
+      ...prev,
+      roomCode: roomCode,
+      roomStatus: 'waiting',
+      playerSymbol: 'X',
+      theme: settings.theme,
+      gameType: selectedGameType // Apply the selected game type
+    }));
+>>>>>>> origin/main
     setShowRoomModal(false);
     setPendingGameMode(null);
   };
@@ -873,22 +1181,46 @@ function App() {
   const handleJoinRoom = (roomCode: string) => {
     playClickSound();
     socket.emit('join_room', { roomCode });
+<<<<<<< HEAD
     startGame(pendingGameMode as GameMode, { 
       roomCode, 
       roomStatus: 'joining',
       playerSymbol: 'O' 
     });
+=======
+    setGameMode(pendingGameMode);
+    setGameState(prev => ({
+      ...prev,
+      roomCode: roomCode,
+      roomStatus: 'joining',
+      playerSymbol: 'O',
+      theme: settings.theme,
+      gameType: selectedGameType // Apply the selected game type
+    }));
+>>>>>>> origin/main
     setShowRoomModal(false);
     setPendingGameMode(null);
   };
 
   const handleRandomMatch = (roomCode: string, isPlayerX: boolean) => {
     playClickSound();
+<<<<<<< HEAD
     startGame(pendingGameMode as GameMode, { 
       roomCode, 
       roomStatus: 'playing',
       playerSymbol: isPlayerX ? 'X' : 'O' 
     });
+=======
+    setGameMode(pendingGameMode);
+    setGameState(prev => ({
+      ...prev,
+      roomCode: roomCode,
+      roomStatus: 'playing',
+      playerSymbol: isPlayerX ? 'X' : 'O',
+      theme: settings.theme,
+      gameType: selectedGameType // Apply the selected game type
+    }));
+>>>>>>> origin/main
     setShowRandomMatchModal(false);
     setPendingGameMode(null);
   };
@@ -902,6 +1234,7 @@ function App() {
       ...prev,
       theme: newSettings.theme
     }));
+<<<<<<< HEAD
 
     // Apply dark mode changes
     if (newSettings.darkMode) {
@@ -909,6 +1242,8 @@ function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
+=======
+>>>>>>> origin/main
   };
 
   const getGameStatus = () => {
@@ -930,6 +1265,7 @@ function App() {
     setGameState({...initialGameState, theme: settings.theme});
   };
 
+<<<<<<< HEAD
   // Update the handleOpenTutorial function to ensure it works properly
   const handleOpenTutorial = () => {
     console.log("handleOpenTutorial called");
@@ -953,6 +1289,12 @@ function App() {
   const backgroundClass = settings.darkMode
     ? "bg-gradient-to-br from-gray-900 to-gray-800" 
     : getThemeClasses(settings.theme, 'bg');
+=======
+  // Dynamic classes based on dark mode setting
+  const bgClass = settings.darkMode 
+    ? "bg-gradient-to-br from-gray-900 to-gray-800" 
+    : applyTheme(settings.theme, "bg-gradient-to-br", 'bg');
+>>>>>>> origin/main
     
   const contentBgClass = settings.darkMode 
     ? "bg-gray-800/90 text-white" 
@@ -966,6 +1308,7 @@ function App() {
   const secondaryClass = getThemeClasses(settings.theme, 'secondary');
   const gradientClass = getThemeClasses(settings.theme, 'gradient');
 
+<<<<<<< HEAD
   // Add a useEffect to reinitialize the game when the board size changes
   useEffect(() => {
     if (isBoardSizeSelectable && gameMode) {
@@ -1062,6 +1405,12 @@ function App() {
   if (error) {
     return (
       <div className={`min-h-screen ${backgroundClass} flex items-center justify-center p-4`}>
+=======
+  // Error Handling UI
+  if (error) {
+    return (
+      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
+>>>>>>> origin/main
         <div className="bg-white/90 backdrop-blur-sm p-8 rounded-xl shadow-xl max-w-md">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
           <p className="text-gray-700 mb-6">{error}</p>
@@ -1100,7 +1449,11 @@ function App() {
           </div>
         }
       >
+<<<<<<< HEAD
         <div className={`min-h-screen ${backgroundClass} flex items-center justify-center p-4 relative overflow-hidden`}>
+=======
+        <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4 relative overflow-hidden`}>
+>>>>>>> origin/main
           {/* Subtle animated background for the game board - reduced for mobile */}
           <div className="absolute inset-0 overflow-hidden">
             {Array.from({ length: bgElementCount }).map((_, i) => (
@@ -1147,10 +1500,27 @@ function App() {
             </div>
             
             <motion.h1 
+<<<<<<< HEAD
               className={`text-4xl sm:text-5xl font-bold ${settings.darkMode ? 'text-white' : `bg-gradient-to-r ${gradientClass} text-transparent bg-clip-text`} mb-3`}
               initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1 }}
+=======
+              className={`text-4xl sm:text-5xl font-bold mb-8 ${
+                settings.darkMode ? 
+                  'text-white' : 
+                  `bg-gradient-to-r ${gradientClass} text-transparent bg-clip-text`
+              }`}
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              transition={{ 
+                type: isLowEndDevice ? "tween" : "spring", 
+                stiffness: settings.animationSpeed === 'slow' ? 200 : 
+                          settings.animationSpeed === 'medium' ? 300 : 400, 
+                damping: 20,
+                duration: isLowEndDevice ? 0.3 : undefined
+              }}
+>>>>>>> origin/main
             >
               Tic Tac Toe
             </motion.h1>
@@ -1166,6 +1536,7 @@ function App() {
                   duration: settings.animationSpeed === 'slow' ? 0.3 : 
                             settings.animationSpeed === 'medium' ? 0.2 : 0.1
                 }}
+<<<<<<< HEAD
                 className="w-80 p-5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-blue-600 hover:to-blue-700 transform transition-all"
                 onClick={() => handleGameModeSelect('friend')}
               >
@@ -1173,6 +1544,14 @@ function App() {
                 <span className="font-semibold text-xl">Play with Friend</span>
               </motion.button>
               
+=======
+                className={`w-72 p-4 bg-gradient-to-r ${primaryClass} rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-blue-600 hover:to-blue-700 transform transition-all`}
+                onClick={() => handleGameModeSelect('friend')}
+              >
+                <Users className="w-6 h-6" />
+                <span className="font-semibold text-lg">Play with Friend</span>
+              </motion.button>
+>>>>>>> origin/main
               <motion.button
                 whileHover={settings.showAnimations && !isLowEndDevice ? 
                   { scale: 1.03, x: 3, boxShadow: "0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 8px -5px rgba(0, 0, 0, 0.04)" } : 
@@ -1183,6 +1562,7 @@ function App() {
                   duration: settings.animationSpeed === 'slow' ? 0.3 : 
                             settings.animationSpeed === 'medium' ? 0.2 : 0.1
                 }}
+<<<<<<< HEAD
                 className="w-80 p-5 bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-teal-600 hover:to-teal-700 transform transition-all"
                 onClick={() => {
                   handleGameModeSelect('friend');
@@ -1210,6 +1590,14 @@ function App() {
                 <span className="font-semibold text-xl">Play with AI</span>
               </motion.button>
               
+=======
+                className={`w-72 p-4 bg-gradient-to-r ${secondaryClass} rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-purple-600 hover:to-purple-700 transform transition-all`}
+                onClick={() => handleGameModeSelect('ai')}
+              >
+                <Gamepad2 className="w-6 h-6" />
+                <span className="font-semibold text-lg">Play with AI</span>
+              </motion.button>
+>>>>>>> origin/main
               <motion.button
                 whileHover={settings.showAnimations && !isLowEndDevice ? 
                   { scale: 1.03, x: 3, boxShadow: "0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 8px -5px rgba(0, 0, 0, 0.04)" } : 
@@ -1220,6 +1608,7 @@ function App() {
                   duration: settings.animationSpeed === 'slow' ? 0.3 : 
                             settings.animationSpeed === 'medium' ? 0.2 : 0.1
                 }}
+<<<<<<< HEAD
                 className="w-80 p-5 bg-gradient-to-r from-pink-500 to-pink-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-pink-600 hover:to-pink-700 transform transition-all"
                 onClick={() => handleGameModeSelect('online')}
               >
@@ -1227,6 +1616,14 @@ function App() {
                 <span className="font-semibold text-xl">Create/Join Room</span>
               </motion.button>
               
+=======
+                className="w-72 p-4 bg-gradient-to-r from-pink-500 to-pink-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-pink-600 hover:to-pink-700 transform transition-all"
+                onClick={() => handleGameModeSelect('online')}
+              >
+                <Wifi className="w-6 h-6" />
+                <span className="font-semibold text-lg">Create/Join Room</span>
+              </motion.button>
+>>>>>>> origin/main
               <motion.button
                 whileHover={settings.showAnimations && !isLowEndDevice ? 
                   { scale: 1.03, x: 3, boxShadow: "0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 8px -5px rgba(0, 0, 0, 0.04)" } : 
@@ -1237,6 +1634,7 @@ function App() {
                   duration: settings.animationSpeed === 'slow' ? 0.3 : 
                             settings.animationSpeed === 'medium' ? 0.2 : 0.1
                 }}
+<<<<<<< HEAD
                 className="w-80 p-5 bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-green-600 hover:to-green-700 transform transition-all"
                 onClick={() => handleGameModeSelect('random')}
               >
@@ -1287,6 +1685,42 @@ function App() {
                 How to Play (Tutorial)
               </motion.button>
             </motion.div>
+=======
+                className="w-72 p-4 bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-teal-600 hover:to-teal-700 transform transition-all"
+                onClick={() => handleGameModeSelect('infinity')}
+              >
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  className="w-6 h-6"
+                >
+                  <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z" />
+                </svg>
+                <span className="font-semibold text-lg">Infinity Mode</span>
+              </motion.button>
+              <motion.button
+                whileHover={settings.showAnimations && !isLowEndDevice ? 
+                  { scale: 1.03, x: 3, boxShadow: "0 15px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 8px -5px rgba(0, 0, 0, 0.04)" } : 
+                  { scale: 1 }
+                }
+                whileTap={{ scale: settings.showAnimations ? 0.97 : 1 }}
+                transition={{ 
+                  duration: settings.animationSpeed === 'slow' ? 0.3 : 
+                            settings.animationSpeed === 'medium' ? 0.2 : 0.1
+                }}
+                className="w-72 p-4 bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg flex items-center justify-center space-x-3 text-white hover:from-green-600 hover:to-green-700 transform transition-all"
+                onClick={() => handleGameModeSelect('random')}
+              >
+                <Globe className="w-6 h-6" />
+                <span className="font-semibold text-lg">Random Match</span>
+              </motion.button>
+            </div>
+>>>>>>> origin/main
           </motion.div>
 
           <AnimatePresence>
@@ -1323,7 +1757,10 @@ function App() {
                 settings={settings}
                 onSave={handleSaveSettings}
                 onClose={() => setShowSettingsModal(false)}
+<<<<<<< HEAD
                 currentGameMode={gameMode}
+=======
+>>>>>>> origin/main
               />
             )}
             {showGameTypeModal && (
@@ -1365,7 +1802,11 @@ function App() {
         </div>
       }
     >
+<<<<<<< HEAD
       <div className={`min-h-screen ${backgroundClass} flex items-center justify-center p-4 relative overflow-hidden`}>
+=======
+      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4 relative overflow-hidden`}>
+>>>>>>> origin/main
         {/* Subtle animated background for the game board */}
         <div className="absolute inset-0 overflow-hidden">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -1446,6 +1887,10 @@ function App() {
                 transition={{ delay: 0.2 }}
               >
                 AI Difficulty: <span className={`font-semibold ${gameState.difficulty === 'god' ? 'text-red-500' : ''}`}>{gameState.difficulty}</span>
+<<<<<<< HEAD
+=======
+                {gameState.gameType === 'infinity' && <span className="ml-3 px-2 py-0.5 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 rounded-full text-xs font-medium">Infinity</span>}
+>>>>>>> origin/main
               </motion.p>
             )}
             {gameMode === 'online' && gameState.roomCode && (
@@ -1457,12 +1902,20 @@ function App() {
               >
                 Room: <span className="font-mono font-semibold">{gameState.roomCode}</span>
                 {gameState.playerSymbol && <span className="ml-2">(You: {gameState.playerSymbol})</span>}
+<<<<<<< HEAD
               </motion.p>
             )}
+=======
+                {gameState.gameType === 'infinity' && <span className="ml-3 px-2 py-0.5 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 rounded-full text-xs font-medium">Infinity</span>}
+              </motion.p>
+            )}
+            {gameMode === 'friend' && gameState.gameType === 'infinity' && (
+>>>>>>> origin/main
               <motion.p 
                 className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
+<<<<<<< HEAD
               transition={{ delay: 0.3 }}
               >
               {getGameStatus()}
@@ -1522,6 +1975,50 @@ function App() {
           />
             )}
           </div>
+=======
+                transition={{ delay: 0.2 }}
+              >
+                <span className="px-2 py-0.5 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 rounded-full text-xs font-medium">Infinity Mode</span>
+              </motion.p>
+            )}
+            <motion.p 
+              className={`text-lg ${settings.darkMode ? 'text-gray-300' : 'text-gray-600'}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              {getGameStatus()}
+            </motion.p>
+          </div>
+
+          <Board
+            board={gameState.board}
+            onCellClick={(index) => {
+              // Try to trigger haptic feedback if enabled
+              if (settings.hapticFeedback && 'navigator' in window && 'vibrate' in navigator) {
+                try {
+                  navigator.vibrate(50);
+                } catch (e) {
+                  console.log('Vibration not supported');
+                }
+              }
+              handleCellClick(index);
+            }}
+            currentPlayer={gameState.currentPlayer}
+            winningLine={gameState.winningLine}
+            disabled={
+              (gameMode === 'ai' && gameState.currentPlayer === 'O') ||
+              (gameMode === 'online' && gameState.currentPlayer !== gameState.playerSymbol) ||
+              gameState.roomStatus === 'waiting' || 
+              gameState.roomStatus === 'joining' ||
+              gameState.roomStatus === 'ended'
+            }
+            winner={gameState.winner}
+            theme={settings.theme}
+            settings={settings}
+            fadingSymbols={gameState.fadingSymbols}
+          />
+>>>>>>> origin/main
 
           <motion.div 
             className="mt-6 flex justify-center space-x-4"
@@ -1537,6 +2034,7 @@ function App() {
             >
               New Game
             </motion.button>
+<<<<<<< HEAD
             
             {gameMode === 'friend' && (
               <motion.button
@@ -1558,6 +2056,8 @@ function App() {
                 {isInfinityMode() ? '🔄' : '♾️'}
               </motion.button>
             )}
+=======
+>>>>>>> origin/main
           </motion.div>
         </motion.div>
         
@@ -1567,6 +2067,7 @@ function App() {
               settings={settings}
               onSave={handleSaveSettings}
               onClose={() => setShowSettingsModal(false)}
+<<<<<<< HEAD
               currentGameMode={gameMode}
             />
           )}
@@ -1582,6 +2083,8 @@ function App() {
               onClose={() => setGameState(prev => ({ ...prev, winner: null }))}
               onBackToMenu={handleBackToMenu}
               settings={settings}
+=======
+>>>>>>> origin/main
             />
           )}
         </AnimatePresence>
@@ -1647,7 +2150,11 @@ const GameTypeModal = ({
               <span className="text-2xl mr-3">♾️</span>
               <div className="text-left">
                 <div className="font-semibold">Infinity Mode</div>
+<<<<<<< HEAD
                 <div className="text-xs text-teal-100">3 symbols max per player</div>
+=======
+                <div className="text-xs text-teal-100">3 symbols per player max</div>
+>>>>>>> origin/main
               </div>
             </div>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-6 h-6">

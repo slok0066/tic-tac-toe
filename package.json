@@ -10,8 +10,12 @@
     "build": "tsc && vite build",
     "vercel-build": "npm run build",
     "preview": "vite preview",
+<<<<<<< HEAD
     "start": "node server/index.js",
     "download-sounds": "node download-sounds.js"
+=======
+    "start": "node server/index.js"
+>>>>>>> origin/main
   },
   "dependencies": {
     "express": "^4.18.2",

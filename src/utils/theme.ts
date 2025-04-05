@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { Theme, BoardStyle } from '../types';
+=======
+import { Theme } from '../types';
+>>>>>>> origin/main
 
 interface ThemeColors {
   primary: string;
@@ -70,6 +74,7 @@ const THEMES: Record<Theme, ThemeColors> = {
   }
 };
 
+<<<<<<< HEAD
 // Expanded theme options
 export const getThemeClasses = (theme: Theme, type: string = 'primary') => {
   const themeMap: Record<Theme, Record<string, string>> = {
@@ -205,6 +210,26 @@ export const getBoardStyleClasses = (boardStyle: BoardStyle, isDarkMode: boolean
 
   const mode = isDarkMode ? 'dark' : 'light';
   return styles[boardStyle][mode] || styles.classic[mode];
+=======
+// Helper function to get CSS classes for a theme
+export const getThemeClasses = (theme: Theme, type: keyof ThemeColors): string => {
+  return THEMES[theme][type];
+};
+
+// Apply theme to an element class string
+export const applyTheme = (theme: Theme, baseClasses: string, themeType: keyof ThemeColors): string => {
+  // Remove any existing theme classes that might be in the baseClasses
+  const classesToRemove = Object.values(THEMES).map(t => t[themeType]);
+  let cleanedClasses = baseClasses;
+  
+  classesToRemove.forEach(classToRemove => {
+    // Use regex to match the exact class
+    cleanedClasses = cleanedClasses.replace(new RegExp(`\\b${classToRemove}\\b`, 'g'), '');
+  });
+  
+  // Add the new theme class
+  return `${cleanedClasses.trim()} ${THEMES[theme][themeType]}`.trim();
+>>>>>>> origin/main
 };
 
 // Get a theme color without the TailwindCSS class prefix

@@ -93,6 +93,7 @@ You can add your own MP3 files with the following names:
 - notification.mp3
 - error.mp3
 
+<<<<<<< HEAD
 ## Getting Started
 
 1. Install dependencies:
@@ -125,6 +126,8 @@ In Infinity mode, each player has only 3 symbols. After placing your 3rd symbol,
 
 If sounds are not working, make sure you've run the `node download-sounds.js` command to download all sound files.
 
+=======
+>>>>>>> origin/main
 ## License
 
 MIT 
