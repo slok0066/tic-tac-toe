@@ -1,16 +1,82 @@
+<<<<<<< HEAD
+import { BoardState, Player, Difficulty, BoardSize, UltimateBoard } from '../types';
+
+// Standard 3x3 winning combinations
+=======
 import { BoardState, Player, Difficulty } from '../types';
 
+>>>>>>> origin/main
 export const WINNING_COMBINATIONS = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
   [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
   [0, 4, 8], [2, 4, 6] // Diagonals
 ];
 
+<<<<<<< HEAD
+// 4x4 winning combinations
+export const WINNING_COMBINATIONS_4X4 = [
+  // Rows
+  [0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15],
+  // Columns
+  [0, 4, 8, 12], [1, 5, 9, 13], [2, 6, 10, 14], [3, 7, 11, 15],
+  // Diagonals
+  [0, 5, 10, 15], [3, 6, 9, 12]
+];
+
+// 5x5 winning combinations
+export const WINNING_COMBINATIONS_5X5 = [
+  // Rows
+  [0, 1, 2, 3, 4], [5, 6, 7, 8, 9], [10, 11, 12, 13, 14], [15, 16, 17, 18, 19], [20, 21, 22, 23, 24],
+  // Columns
+  [0, 5, 10, 15, 20], [1, 6, 11, 16, 21], [2, 7, 12, 17, 22], [3, 8, 13, 18, 23], [4, 9, 14, 19, 24],
+  // Diagonals
+  [0, 6, 12, 18, 24], [4, 8, 12, 16, 20]
+];
+
+// Get the appropriate winning combinations based on board size
+export const getWinningCombinations = (boardSize: BoardSize): number[][] => {
+  switch (boardSize) {
+    case '3x3':
+      return WINNING_COMBINATIONS;
+    case '4x4':
+      return WINNING_COMBINATIONS_4X4;
+    case '5x5':
+      return WINNING_COMBINATIONS_5X5;
+    case 'ultimate':
+      return WINNING_COMBINATIONS; // Ultimate uses 3x3 for each mini-board and the meta-board
+    default:
+      return WINNING_COMBINATIONS;
+  }
+};
+
+// Get board size based on the length of the board array
+export const getBoardSizeFromLength = (length: number): BoardSize => {
+  switch (length) {
+    case 9:
+      return '3x3';
+    case 16:
+      return '4x4';
+    case 25:
+      return '5x5';
+    default:
+      return '3x3';
+  }
+};
+
+export const checkWinner = (board: BoardState, boardSize: BoardSize = '3x3'): { winner: Player | 'draw' | null; line: number[] | null } => {
+  const combinations = getWinningCombinations(boardSize);
+  
+  for (const combo of combinations) {
+    const [first, ...rest] = combo;
+    if (board[first] && rest.every(pos => board[pos] === board[first])) {
+      return { winner: board[first], line: combo };
+=======
 export const checkWinner = (board: BoardState): { winner: Player | 'draw' | null; line: number[] | null } => {
   for (const combo of WINNING_COMBINATIONS) {
     const [a, b, c] = combo;
     if (board[a] && board[a] === board[b] && board[a] === board[c]) {
       return { winner: board[a], line: combo };
+>>>>>>> origin/main
     }
   }
 
@@ -21,9 +87,98 @@ export const checkWinner = (board: BoardState): { winner: Player | 'draw' | null
   return { winner: null, line: null };
 };
 
+<<<<<<< HEAD
+// Initialize an Ultimate Tic-Tac-Toe board
+export const initializeUltimateBoard = (): UltimateBoard => {
+  return {
+    boards: Array(9).fill(null).map(() => Array(9).fill(null)),
+    activeBoard: null, // Initially, any board can be played
+    winners: Array(9).fill(null)
+  };
+};
+
+// Check winner for Ultimate Tic-Tac-Toe
+export const checkUltimateWinner = (ultimateBoard: UltimateBoard): { winner: Player | 'draw' | null; line: number[] | null } => {
+  const metaBoard = ultimateBoard.winners;
+  
+  // Check if there's a winner at the meta level
+  for (const combo of WINNING_COMBINATIONS) {
+    const [a, b, c] = combo;
+    if (metaBoard[a] && metaBoard[a] !== 'draw' && metaBoard[a] === metaBoard[b] && metaBoard[a] === metaBoard[c]) {
+      return { winner: metaBoard[a], line: combo };
+    }
+  }
+  
+  // Check for a draw at the meta level
+  if (metaBoard.every(result => result !== null)) {
+    return { winner: 'draw', line: null };
+  }
+  
+  return { winner: null, line: null };
+};
+
+// Make a move in Ultimate Tic-Tac-Toe
+export const makeUltimateMove = (
+  ultimateBoard: UltimateBoard,
+  boardIndex: number,
+  cellIndex: number,
+  player: Player
+): { newBoard: UltimateBoard; validMove: boolean } => {
+  // Check if the move is valid (correct board and empty cell)
+  if (
+    (ultimateBoard.activeBoard !== null && ultimateBoard.activeBoard !== boardIndex) ||
+    ultimateBoard.winners[boardIndex] !== null ||
+    ultimateBoard.boards[boardIndex][cellIndex] !== null
+  ) {
+    return { newBoard: ultimateBoard, validMove: false };
+  }
+  
+  // Create a copy of the board
+  const newBoards = [...ultimateBoard.boards];
+  const board = [...newBoards[boardIndex]];
+  board[cellIndex] = player;
+  newBoards[boardIndex] = board;
+  
+  // Check if this move creates a winner in the current mini-board
+  const { winner } = checkWinner(board, '3x3');
+  const newWinners = [...ultimateBoard.winners];
+  if (winner) {
+    newWinners[boardIndex] = winner;
+  }
+  
+  // Determine the next active board
+  let nextActiveBoard = cellIndex;
+  
+  // If the next board is already won or full, the next player can choose any board
+  if (newWinners[nextActiveBoard] !== null) {
+    nextActiveBoard = null;
+  }
+  
+  return {
+    newBoard: {
+      boards: newBoards,
+      winners: newWinners,
+      activeBoard: nextActiveBoard
+    },
+    validMove: true
+  };
+};
+
+// Minimax algorithm with alpha-beta pruning for efficiency
+const minimax = (
+  board: BoardState, 
+  depth: number, 
+  isMaximizing: boolean, 
+  alpha: number = -Infinity, 
+  beta: number = Infinity,
+  boardSize: BoardSize = '3x3'
+): number => {
+  const { winner } = checkWinner(board, boardSize);
+=======
 // Minimax algorithm with alpha-beta pruning for efficiency
 const minimax = (board: BoardState, depth: number, isMaximizing: boolean, alpha: number = -Infinity, beta: number = Infinity): number => {
   const { winner } = checkWinner(board);
+>>>>>>> origin/main
   
   if (winner === 'O') return 10 - depth;
   if (winner === 'X') return depth - 10;
@@ -34,7 +189,11 @@ const minimax = (board: BoardState, depth: number, isMaximizing: boolean, alpha:
     for (let i = 0; i < board.length; i++) {
       if (board[i] === null) {
         board[i] = 'O';
+<<<<<<< HEAD
+        const evalScore = minimax(board, depth + 1, false, alpha, beta, boardSize);
+=======
         const evalScore = minimax(board, depth + 1, false, alpha, beta);
+>>>>>>> origin/main
         board[i] = null;
         maxEval = Math.max(maxEval, evalScore);
         alpha = Math.max(alpha, evalScore);
@@ -44,11 +203,19 @@ const minimax = (board: BoardState, depth: number, isMaximizing: boolean, alpha:
     return maxEval;
   } else {
     let minEval = Infinity;
+<<<<<<< HEAD
+    for (let i = 0; i < board.length; i++) {
+      if (board[i] === null) {
+        board[i] = 'X';
+        const evalScore = minimax(board, depth + 1, true, alpha, beta, boardSize);
+        board[i] = null;
+=======
   for (let i = 0; i < board.length; i++) {
     if (board[i] === null) {
         board[i] = 'X';
         const evalScore = minimax(board, depth + 1, true, alpha, beta);
       board[i] = null;
+>>>>>>> origin/main
         minEval = Math.min(minEval, evalScore);
         beta = Math.min(beta, evalScore);
         if (beta <= alpha) break; // Alpha-beta pruning
@@ -58,7 +225,11 @@ const minimax = (board: BoardState, depth: number, isMaximizing: boolean, alpha:
   }
 };
 
+<<<<<<< HEAD
+export const getAIMove = (board: BoardState, difficulty: Difficulty, boardSize: BoardSize = '3x3'): number => {
+=======
 export const getAIMove = (board: BoardState, difficulty: Difficulty): number => {
+>>>>>>> origin/main
   const availableMoves = board.reduce<number[]>((acc, cell, index) => {
     if (cell === null) acc.push(index);
     return acc;
@@ -84,13 +255,21 @@ export const getAIMove = (board: BoardState, difficulty: Difficulty): number => 
     // Check if AI can win
     const testBoard = [...board];
     testBoard[move] = 'O';
+<<<<<<< HEAD
+    if (checkWinner(testBoard, boardSize).winner === 'O') {
+=======
     if (checkWinner(testBoard).winner === 'O') {
+>>>>>>> origin/main
       return move;
     }
 
     // Check if need to block player
     testBoard[move] = 'X';
+<<<<<<< HEAD
+    if (checkWinner(testBoard, boardSize).winner === 'X') {
+=======
     if (checkWinner(testBoard).winner === 'X') {
+>>>>>>> origin/main
       return move;
     }
   }
@@ -103,7 +282,11 @@ export const getAIMove = (board: BoardState, difficulty: Difficulty): number => 
     for (const move of availableMoves) {
       const testBoard = [...board];
       testBoard[move] = 'O';
+<<<<<<< HEAD
+      const score = minimax(testBoard, 0, false, -Infinity, Infinity, boardSize);
+=======
       const score = minimax(testBoard, 0, false);
+>>>>>>> origin/main
       if (score > bestScore) {
         bestScore = score;
         bestMove = move;
@@ -122,7 +305,11 @@ export const getAIMove = (board: BoardState, difficulty: Difficulty): number => 
       for (const move of availableMoves) {
         const testBoard = [...board];
         testBoard[move] = 'O';
+<<<<<<< HEAD
+        const score = minimax(testBoard, 0, false, -Infinity, Infinity, boardSize);
+=======
         const score = minimax(testBoard, 0, false);
+>>>>>>> origin/main
         if (score > bestScore) {
           bestScore = score;
           bestMove = move;
@@ -133,7 +320,15 @@ export const getAIMove = (board: BoardState, difficulty: Difficulty): number => 
   }
 
   // If center is available, take it
+<<<<<<< HEAD
+  const centerIndex = boardSize === '3x3' ? 4 : 
+                     boardSize === '4x4' ? 5 : // Use 5 (near center) for 4x4 
+                     boardSize === '5x5' ? 12 : 4; // Center is 12 in 5x5
+                     
+  if (board[centerIndex] === null) return centerIndex;
+=======
   if (board[4] === null) return 4;
+>>>>>>> origin/main
 
   // Otherwise, choose random corner or side
   return availableMoves[Math.floor(Math.random() * availableMoves.length)];

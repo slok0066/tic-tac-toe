@@ -93,6 +93,41 @@ You can add your own MP3 files with the following names:
 - notification.mp3
 - error.mp3
 
+<<<<<<< HEAD
+## Getting Started
+
+1. Install dependencies:
+```
+npm install
+```
+
+2. Start the development server:
+```
+npm start
+```
+
+3. Download sound files:
+```
+node download-sounds.js
+```
+
+This will download all the sound files needed for the game. You need to run this once to ensure the sound effects and background music work properly.
+
+## How to Play
+
+1. Select a game mode: AI, Friend, Online or Infinity
+2. Choose the board size and style in the settings
+3. Make your moves on the board
+4. First player to get a line (horizontal, vertical, or diagonal) wins!
+
+In Infinity mode, each player has only 3 symbols. After placing your 3rd symbol, your first placed symbol will be removed on your next turn.
+
+## Troubleshooting
+
+If sounds are not working, make sure you've run the `node download-sounds.js` command to download all sound files.
+
+=======
+>>>>>>> origin/main
 ## License
 
 MIT 
